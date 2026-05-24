@@ -517,7 +517,8 @@ public class VendingMachineForm extends JFrame {
         if (collectedTotal > 0) {
             saveCoinStock();
             appendLineToFile(CASH_COLLECTION_FILE,
-                    getCurrentDate() + "|COLLECT|" + collectedTotal + "|reserve=" + MINIMUM_COIN_RESERVE[0] + "," + MINIMUM_COIN_RESERVE[1] + "," + MINIMUM_COIN_RESERVE[2] + "," + MINIMUM_COIN_RESERVE[3]);
+                    getCurrentDate() + "|COLLECT|" + collectedTotal + "|reserve=" + MINIMUM_COIN_RESERVE[0] + ","
+                            + MINIMUM_COIN_RESERVE[1] + "," + MINIMUM_COIN_RESERVE[2] + "," + MINIMUM_COIN_RESERVE[3]);
         }
         return collectedTotal;
     }
