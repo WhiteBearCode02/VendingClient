@@ -18,15 +18,16 @@ public class AdminForm extends JFrame {
     static class SalesData {
         String name;
         int price;
+
         public SalesData(String name, int price) {
             this.name = name;
             this.price = price;
         }
     }
 
-    // [기능 설명] 관리자 창의 컴포넌트 레이아웃을 생성하고 이벤트를 바인딩하는 생성자입니다.
-    public AdminForm(VendingMachineForm mainForm) {
-        this.mainForm = mainForm;
+    // [핵심 해결] 매개변수 이름을 'form'으로 변경하여 Variable Shadowing(변수 가림 현상)을 방지합니다.
+    public AdminForm(VendingMachineForm form) {
+        this.mainForm = form; // 이제 클래스의 진짜 필드인 mainForm에 안전하게 안착합니다.
 
         setTitle("자판기 중앙 관리자 시스템");
         setSize(500, 600);
@@ -124,7 +125,7 @@ public class AdminForm extends JFrame {
 
         // 동적 리스트를 정렬 알고리즘용 고정 정적 배열로 변환
         SalesData[] arr = list.toArray(new SalesData[0]);
-        
+
         // [핵심 정렬 알고리즘] 가격 오름차순 기준 버블 정렬(Bubble Sort)을 실행합니다. (O(n^2))
         for (int i = 0; i < arr.length - 1; i++) {
             for (int j = 0; j < arr.length - i - 1; j++) {

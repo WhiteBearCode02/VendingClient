@@ -4,7 +4,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.FileWriter;
 import java.io.PrintWriter;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Stack;
 
@@ -13,6 +12,7 @@ class TreeNode {
     String drinkName;
     int price;
     TreeNode left, right;
+
     public TreeNode(String name, int price) {
         this.drinkName = name;
         this.price = price;
@@ -21,19 +21,19 @@ class TreeNode {
 }
 
 public class VendingMachineForm extends JFrame {
-    
-    private int currentInsertedMoney = 0; 
-    private JLabel balanceLabel;           
+
+    private int currentInsertedMoney = 0;
+    private JLabel balanceLabel;
     private DrinkNode head = null;
     private Stack<String> purchaseStack = new Stack<>();
     private JButton[] drinkButtons = new JButton[8];
-    private String[] drinkNames = {"믹스커피", "고급믹스커피", "물", "캔커피", "이온음료", "고급캔커피", "탄산음료", "특화음료"};
-    private int[] drinkPrices = {200, 300, 450, 500, 550, 700, 750, 800};
+    private String[] drinkNames = { "믹스커피", "고급믹스커피", "물", "캔커피", "이온음료", "고급캔커피", "탄산음료", "특화음료" };
+    private int[] drinkPrices = { 200, 300, 450, 500, 550, 700, 750, 800 };
 
-    private CircularQueue networkQueue = new CircularQueue(20); 
+    private CircularQueue networkQueue = new CircularQueue(20);
     private Socket socket;
     private PrintWriter writer;
-    private boolean isNetworkActive = true; 
+    private boolean isNetworkActive = true;
 
     public VendingMachineForm() {
         // 백엔드 인벤토리 연결 리스트 초기화 가동
@@ -42,8 +42,8 @@ public class VendingMachineForm extends JFrame {
 
         setTitle("Java Swing 자판기 시뮬레이터 v1.4 (전체 모듈 통합본)");
         setSize(450, 700); // 관리자 버튼 추가로 가로세로 비율 최적화
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); 
-        setLayout(new BorderLayout(10, 10)); 
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout(10, 10));
 
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
@@ -52,22 +52,35 @@ public class VendingMachineForm extends JFrame {
             }
         });
 
-        JLabel titleLabel = new JLabel("C언어 로직 이식 Java 자판기", SwingConstants.CENTER);
+        JLabel titleLabel = new JLabel("음료 판매 자판기", SwingConstants.CENTER);
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 22));
         titleLabel.setForeground(Color.BLUE);
         add(titleLabel, BorderLayout.NORTH);
 
-        JPanel buttonPanel = new JPanel(new GridLayout(4, 2, 10, 10)); 
-        
+        JPanel buttonPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+
         for (int i = 0; i < 8; i++) {
-            refreshButtonText(i);
+            refreshButtonText(i); // 버튼 텍스트 초기화 및 생성
+
+            // 이벤트 리스너 내부로 전달하기 위한 불변(final) 로컬 변수 할당
+            final int currentIndex = i;
+            final String name = drinkNames[i];
+
+            // [핵심 해결] 마우스 클릭 이벤트를 감지하여 구매 함수와 연결(Binding)
+            drinkButtons[currentIndex].addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    purchaseDrinkWithLinkedList(name, drinkButtons[currentIndex]);
+                }
+            });
+
             buttonPanel.add(drinkButtons[i]);
         }
         add(buttonPanel, BorderLayout.CENTER);
 
         // 하단 복합 제어 판넬 (잔액, 투입, 취소, 관리자 진입 버튼 집약)
         JPanel bottomPanel = new JPanel(new GridLayout(4, 1, 5, 5));
-        
+
         balanceLabel = new JLabel("현재 잔액: 0원", SwingConstants.CENTER);
         balanceLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         balanceLabel.setOpaque(true);
@@ -91,7 +104,7 @@ public class VendingMachineForm extends JFrame {
 
         JButton btnUndo = new JButton("◀ 최근 구매 취소 (환불)");
         btnUndo.setFont(new Font("맑은 고딕", Font.BOLD, 14));
-        btnUndo.setBackground(new Color(255, 182, 193)); 
+        btnUndo.setBackground(new Color(255, 182, 193));
         btnUndo.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -119,7 +132,7 @@ public class VendingMachineForm extends JFrame {
             }
         });
         bottomPanel.add(btnAdmin);
-        
+
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
@@ -129,7 +142,7 @@ public class VendingMachineForm extends JFrame {
         int price = drinkPrices[index];
         DrinkNode target = findDrinkNode(name);
         String buttonText = name + " (" + price + "원) [재고:" + (target != null ? target.getStock() : 0) + "]";
-        
+
         if (drinkButtons[index] == null) {
             drinkButtons[index] = new JButton(buttonText);
             drinkButtons[index].setFont(new Font("맑은 고딕", Font.PLAIN, 14));
@@ -156,7 +169,11 @@ public class VendingMachineForm extends JFrame {
                             writer.println(packet);
                         }
                     }
-                    try { Thread.sleep(50); } catch (InterruptedException ie) { break; }
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException ie) {
+                        break;
+                    }
                 }
             }
         });
@@ -166,9 +183,13 @@ public class VendingMachineForm extends JFrame {
     private void shutdownNetworkEngine() {
         isNetworkActive = false;
         try {
-            if (writer != null) writer.close();
-            if (socket != null) socket.close();
-        } catch (Exception e) { e.printStackTrace(); }
+            if (writer != null)
+                writer.close();
+            if (socket != null)
+                socket.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void initializeInventory() {
@@ -215,11 +236,11 @@ public class VendingMachineForm extends JFrame {
         }
 
         currentInsertedMoney -= drink.getPrice();
-        drink.setStock(drink.getStock() - 1); 
+        drink.setStock(drink.getStock() - 1);
 
         purchaseStack.push(drink.getName());
         networkQueue.enqueue("SALE|" + drink.getName() + "|" + drink.getPrice());
-        
+
         // [★ 로컬 파일 I/O 연동 ★] 영속성 파일 데이터 저장소에 동기화 쓰기 수행
         saveSalesRecordToFile("SALE", drink.getName(), drink.getPrice());
 
@@ -243,12 +264,12 @@ public class VendingMachineForm extends JFrame {
             drink.setStock(drink.getStock() + 1);
 
             networkQueue.enqueue("CANCEL|" + drink.getName() + "|" + drink.getPrice());
-            
+
             // [★ 로컬 파일 I/O 연동 ★] 취소 내역 역시 파일 데이터베이스에 기록하여 정렬 싱크 보장
             saveSalesRecordToFile("CANCEL", drink.getName(), drink.getPrice());
 
-            balanceLabel.setText("Harris 잔액: " + currentInsertedMoney + "원");
-            
+            balanceLabel.setText("현재 잔액: " + currentInsertedMoney + "원");
+
             for (int i = 0; i < drinkNames.length; i++) {
                 if (drinkNames[i].equals(lastDrinkName)) {
                     refreshButtonText(i);
@@ -267,7 +288,10 @@ public class VendingMachineForm extends JFrame {
         if (drink != null) {
             drink.setStock(drink.getStock() + amount);
             for (int i = 0; i < drinkNames.length; i++) {
-                if (drinkNames[i].equals(name)) { refreshButtonText(i); break; }
+                if (drinkNames[i].equals(name)) {
+                    refreshButtonText(i);
+                    break;
+                }
             }
         }
     }
@@ -284,10 +308,13 @@ public class VendingMachineForm extends JFrame {
                     // 연결리스트 내부 노드 속성 직접 수정
                     try {
                         java.lang.reflect.Field nameField = DrinkNode.class.getDeclaredField("name");
-                        nameField.setAccessible(true); nameField.set(drink, newName);
+                        nameField.setAccessible(true);
+                        nameField.set(drink, newName);
                         java.lang.reflect.Field priceField = DrinkNode.class.getDeclaredField("price");
-                        priceField.setAccessible(true); priceField.set(drink, newPrice);
-                    } catch (Exception e) {}
+                        priceField.setAccessible(true);
+                        priceField.set(drink, newPrice);
+                    } catch (Exception e) {
+                    }
                     refreshButtonText(i);
                     break;
                 }
@@ -313,17 +340,24 @@ public class VendingMachineForm extends JFrame {
     }
 
     private TreeNode insertTreeNode(TreeNode root, String name, int price) {
-        if (root == null) return new TreeNode(name, price);
-        if (price <= root.price) root.left = insertTreeNode(root.left, name, price);
-        else root.right = insertTreeNode(root.right, name, price);
+        if (root == null)
+            return new TreeNode(name, price);
+        if (price <= root.price)
+            root.left = insertTreeNode(root.left, name, price);
+        else
+            root.right = insertTreeNode(root.right, name, price);
         return root;
     }
 
     private void searchTreeNode(TreeNode root, int targetPrice, StringBuilder sb) {
-        if (root == null) return;
-        if (root.price == targetPrice) sb.append("=> 트리 노드 발견: ").append(root.drinkName).append(" (").append(root.price).append("원)\n");
-        if (targetPrice <= root.price) searchTreeNode(root.left, targetPrice, sb);
-        if (targetPrice > root.price) searchTreeNode(root.right, targetPrice, sb);
+        if (root == null)
+            return;
+        if (root.price == targetPrice)
+            sb.append("=> 트리 노드 발견: ").append(root.drinkName).append(" (").append(root.price).append("원)\n");
+        if (targetPrice <= root.price)
+            searchTreeNode(root.left, targetPrice, sb);
+        if (targetPrice > root.price)
+            searchTreeNode(root.right, targetPrice, sb);
     }
 
     public static void main(String[] args) {
