@@ -1,104 +1,192 @@
-// [GitHub Commit: feat: Rebase project directory to Documents and setup GUI blueprint]
+// [GitHub Commit: feat: Implement Undo system using java.util.Stack for purchase history rollback]
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Stack; // 자바 표준 스택 라이브러리 포함
 
-// [기능 설명] Java의 표준 GUI 라이브러리인 Swing의 JFrame을 상속받아 자판기 창 시스템을 정의합니다.
 public class VendingMachineForm extends JFrame {
-    
-    // [기능 설명] 자판기 내부 상태를 관리하는 인메모리(In-memory) 변수들입니다.
-    private int currentInsertedMoney = 0; // 동적 할당 없이 자바 힙 메모리에 상주하는 잔액 변수
-    private JLabel balanceLabel;           // 화면에 실시간 잔액 텍스트를 표현할 UI 컴포넌트
 
-    // [기능 설명] GUI 창의 모양과 버튼 배치를 담당하는 생성자(Constructor)입니다.
+    private int currentInsertedMoney = 0;
+    private JLabel balanceLabel;
+    private DrinkNode head = null;
+
+    // [핵심 자료구조] 최근 구매 내역을 LIFO(Last-In, First-Out) 구조로 기억할 스택 선언
+    // 자바의 제네릭(<>) 기능을 사용하여 오직 문자열(음료 이름)만 담도록 타입을 강제합니다.
+    private Stack<String> purchaseStack = new Stack<>();
+
+    // 각 음료 버튼들의 참조를 보관할 배열 (환불 시 버튼 텍스트를 실시간으로 갱신하기 위함)
+    private JButton[] drinkButtons = new JButton[8];
+    private String[] drinkNames = { "믹스커피", "고급믹스커피", "물", "캔커피", "이온음료", "고급캔커피", "탄산음료", "특화음료" };
+    private int[] drinkPrices = { 200, 300, 450, 500, 550, 700, 750, 800 };
+
     public VendingMachineForm() {
-        // 1. 메인 윈도우 창의 기본 프레임 스펙 설정
-        setTitle("Java Swing 자판기 시뮬레이터 v1.0");
-        setSize(450, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // 창을 닫으면 프로세스도 완전히 종료하도록 명시
-        setLayout(new BorderLayout(10, 10)); // 동서남북 구획 레이아웃 설정
+        initializeInventory();
 
-        // 2. 상단 상단 배너 레이블 설정 (C언어의 메인 타이틀 printf 대체)
+        setTitle("Java Swing 자판기 시뮬레이터 v1.2 (Stack 탑재)");
+        setSize(450, 650); // 취소 버튼 추가로 인해 세로 크기 확장
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout(10, 10));
+
         JLabel titleLabel = new JLabel("C언어 로직 이식 Java 자판기", SwingConstants.CENTER);
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 22));
         titleLabel.setForeground(Color.BLUE);
         add(titleLabel, BorderLayout.NORTH);
 
-        // 3. 중앙 영역: 음료 구매 버튼들을 격자 구조(Grid)로 정렬하여 배치할 패널
-        JPanel buttonPanel = new JPanel(new GridLayout(4, 2, 10, 10)); // 4행 2열 격자 구조
-        
-        // 요구사항에 명시되었던 8개 음료 이름을 배열로 루프 바인딩
-        String[] drinkNames = {
-            "믹스커피 (200원)", "고급믹스커피 (300원)", "물 (450원)", "캔커피 (500원)",
-            "이온음료 (550원)", "고급캔커피 (700원)", "탄산음료 (750원)", "특화음료 (800원)"
-        };
-        int[] drinkPrices = {200, 300, 450, 500, 550, 700, 750, 800};
+        JPanel buttonPanel = new JPanel(new GridLayout(4, 2, 10, 10));
 
         for (int i = 0; i < 8; i++) {
-            final String name = drinkNames[i].split(" ")[0]; // 이름만 파싱
+            final String name = drinkNames[i];
             final int price = drinkPrices[i];
 
-            JButton btn = new JButton(drinkNames[i]);
-            btn.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+            DrinkNode target = findDrinkNode(name);
+            String buttonText = name + " (" + price + "원) [재고:" + (target != null ? target.getStock() : 0) + "]";
 
-            // [핵심 인터페이스] 사용자가 마우스로 버튼을 클릭했을 때 작동할 이벤트 리스너(Listener) 바인딩
-            btn.addActionListener(new ActionListener() {
+            drinkButtons[i] = new JButton(buttonText);
+            drinkButtons[i].setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+
+            final int currentIndex = i;
+            drinkButtons[i].addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    // 추후 다음 단계에서 구현할 연결 리스트 재고 차감 비즈니스 로직 함수 호출부 연결
-                    purchaseDrinkLogic(name, price);
+                    purchaseDrinkWithLinkedList(name, drinkButtons[currentIndex]);
                 }
             });
-            buttonPanel.add(btn);
+            buttonPanel.add(drinkButtons[i]);
         }
         add(buttonPanel, BorderLayout.CENTER);
 
-        // 4. 하단 영역: 금액 투입 버튼 및 실시간 잔액 시각화 레이어 구성
-        JPanel bottomPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        
+        // 하단 UI 레이아웃 설정 (잔액 표시, 금액 투입 버튼, 구매 취소 버튼 복합 구성)
+        JPanel bottomPanel = new JPanel(new GridLayout(3, 1, 5, 5));
+
         balanceLabel = new JLabel("현재 잔액: 0원", SwingConstants.CENTER);
         balanceLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         balanceLabel.setOpaque(true);
         balanceLabel.setBackground(Color.LIGHT_GRAY);
         bottomPanel.add(balanceLabel);
 
-        // 금액 투입 이벤트 유도용 버튼 생성
         JButton btnInsert1000 = new JButton("1,000원 투입하기");
         btnInsert1000.setFont(new Font("맑은 고딕", Font.BOLD, 14));
         btnInsert1000.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // 기존 insertMoney 로직 이식
                 if (currentInsertedMoney + 1000 <= 7000) {
                     currentInsertedMoney += 1000;
                     balanceLabel.setText("현재 잔액: " + currentInsertedMoney + "원");
                 } else {
-                    // Java 내장 그래픽 모달창인 경고 팝업 생성
                     JOptionPane.showMessageDialog(null, "투입 한도(7,000원)를 초과했습니다.", "한도 초과", JOptionPane.WARNING_MESSAGE);
                 }
             }
         });
         bottomPanel.add(btnInsert1000);
+
+        // [★ 새 기능 추가 ★] 스택 자료구조를 호출하여 환불을 수행하는 GUI 버튼 생성
+        JButton btnUndo = new JButton("◀ 최근 구매 취소 (환불)");
+        btnUndo.setFont(new Font("맑은 고딕", Font.BOLD, 14));
+        btnUndo.setBackground(new Color(255, 182, 193)); // 연분홍색으로 구분감 부여
+        btnUndo.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // 스택 기반 롤백 비즈니스 로직 함수 호출
+                executeUndoWithStack();
+            }
+        });
+        bottomPanel.add(btnUndo);
+
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    // [기능 설명] C언어 vending_machine.c의 purchaseDrink 알고리즘이 들어갈 임시 스텁(Stub) 함수입니다.
-    private void purchaseDrinkLogic(String name, int price) {
-        if (currentInsertedMoney >= price) {
-            currentInsertedMoney -= price;
-            balanceLabel.setText("현재 잔액: " + currentInsertedMoney + "원");
-            // 자바 표준 GUI 메시지 다이얼로그를 통해 성공 피드백 시각화
-            JOptionPane.showMessageDialog(this, name + " 구매 성공! (잔액 복구/차감 완료)");
-        } else {
-            JOptionPane.showMessageDialog(this, "잔액이 부족합니다. 금액을 더 투입해 주세요.", "잔액 부족", JOptionPane.ERROR_MESSAGE);
+    private void initializeInventory() {
+        for (int i = 0; i < drinkNames.length; i++) {
+            DrinkNode newNode = new DrinkNode(drinkNames[i], drinkPrices[i], 5);
+            if (head == null) {
+                head = newNode;
+            } else {
+                DrinkNode current = head;
+                while (current.getNext() != null) {
+                    current = current.getNext();
+                }
+                current.setNext(newNode);
+            }
         }
     }
 
-    // [기능 설명] 자바 애플리케이션의 메인 진입점(Entry Point)입니다.
+    private DrinkNode findDrinkNode(String name) {
+        DrinkNode current = head;
+        while (current != null) {
+            if (current.getName().equals(name)) {
+                return current;
+            }
+            current = current.getNext();
+        }
+        return null;
+    }
+
+    private void purchaseDrinkWithLinkedList(String name, JButton targetButton) {
+        DrinkNode drink = findDrinkNode(name);
+
+        if (drink == null) {
+            JOptionPane.showMessageDialog(this, "존재하지 않는 상품입니다.", "오류", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (currentInsertedMoney < drink.getPrice()) {
+            JOptionPane.showMessageDialog(this, "잔액이 부족합니다.", "잔액 부족", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (drink.getStock() <= 0) {
+            JOptionPane.showMessageDialog(this, drink.getName() + " 제품이 품절되었습니다.", "품절", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        currentInsertedMoney -= drink.getPrice();
+        drink.setStock(drink.getStock() - 1);
+
+        // [스택 연동] 트랜잭션 성공 시, 해당 음료의 이름을 스택의 최상단(Top)에 푸시(Push)합니다.
+        purchaseStack.push(drink.getName());
+
+        balanceLabel.setText("현재 잔액: " + currentInsertedMoney + "원");
+        targetButton.setText(drink.getName() + " (" + drink.getPrice() + "원) [재고:" + drink.getStock() + "]");
+
+        JOptionPane.showMessageDialog(this, drink.getName() + " 구매 완료!\n남은 재고: " + drink.getStock() + "개");
+    }
+
+    // [기능 설명] 사용자가 '구매 취소' 버튼을 누르면 스택에서 데이터를 팝(Pop)하여 상태를 복구합니다.
+    private void executeUndoWithStack() {
+        // 1. Stack Underflow 방지: 스택이 비어있는지 사전에 확인합니다.
+        if (purchaseStack.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "취소할 최근 구매 내역이 존재하지 않습니다.", "안내", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // 2. LIFO 원칙에 따라 가장 마지막에 삽입된 음료 이름을 스택에서 추출(Pop)하며 제거합니다.
+        String lastDrinkName = purchaseStack.pop();
+        DrinkNode drink = findDrinkNode(lastDrinkName);
+
+        if (drink != null) {
+            // 3. 상태 변이 복구(Rollback): 차감되었던 금액을 돌려주고 연결 리스트 재고를 1 복구합니다.
+            currentInsertedMoney += drink.getPrice();
+            drink.setStock(drink.getStock() + 1);
+
+            // 4. 화면 UI 컴포넌트 실시간 동기화
+            balanceLabel.setText("현재 잔액: " + currentInsertedMoney + "원");
+
+            // 해당 음료 버튼의 인덱스를 찾아 버튼 글자 업데이트
+            for (int i = 0; i < drinkNames.length; i++) {
+                if (drinkNames[i].equals(lastDrinkName)) {
+                    drinkButtons[i]
+                            .setText(drink.getName() + " (" + drink.getPrice() + "원) [재고:" + drink.getStock() + "]");
+                    break;
+                }
+            }
+
+            JOptionPane.showMessageDialog(this, "'" + lastDrinkName + "' 구매가 성공적으로 취소되었습니다.\n금액 및 재고가 롤백되었습니다.");
+        }
+    }
+
     public static void main(String[] args) {
-        // GUI의 렌더링 무결성을 위해 이벤트 디스패치 스레드(EDT)를 가동하여 창을 화면에 띄웁니다.
         SwingUtilities.invokeLater(() -> {
             new VendingMachineForm().setVisible(true);
         });
