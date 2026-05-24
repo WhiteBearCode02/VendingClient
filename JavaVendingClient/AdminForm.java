@@ -6,8 +6,11 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class AdminForm extends JFrame {
     // 의존성 결합: 자판기의 연결 리스트 인벤토리를 직접 제어하기 위해 메인 폼의 참조 주소를 보관합니다.
@@ -45,13 +48,17 @@ public class AdminForm extends JFrame {
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
         // 하단 영역: 제어 기능 버튼 모음 패널
-        JPanel controlPanel = new JPanel(new GridLayout(3, 2, 5, 5));
+        JPanel controlPanel = new JPanel(new GridLayout(5, 2, 5, 5));
 
         JButton btnLoadSales = new JButton("1. 매출 내역 정렬 확인 (Sort)");
         JButton btnSearchPrice = new JButton("2. 특정 가격 상품 검색 (BST)");
         JButton btnUpdateInfo = new JButton("3. 음료 정보 수정");
         JButton btnReplenish = new JButton("4. 음료 재고 보충");
         JButton btnChangePassword = new JButton("5. 관리자 비밀번호 변경");
+        JButton btnDailySalesTotal = new JButton("6. 일별 매출 총합 조회");
+        JButton btnMonthlySalesTotal = new JButton("7. 월별 매출 총합 조회");
+        JButton btnDailyDrinkSales = new JButton("8. 각 음료 일별 매출 조회");
+        JButton btnMonthlyDrinkSales = new JButton("9. 각 음료 월별 매출 조회");
 
         // [★ 알고리즘 통합 ★] 1. 파일에서 매출을 읽어와 버블 정렬 알고리즘을 가동하는 이벤트 리스너
         btnLoadSales.addActionListener(new ActionListener() {
@@ -129,11 +136,43 @@ public class AdminForm extends JFrame {
             }
         });
 
+        btnDailySalesTotal.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayDailySalesTotal();
+            }
+        });
+
+        btnMonthlySalesTotal.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayMonthlySalesTotal();
+            }
+        });
+
+        btnDailyDrinkSales.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayDailyDrinkSales();
+            }
+        });
+
+        btnMonthlyDrinkSales.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayMonthlyDrinkSales();
+            }
+        });
+
         controlPanel.add(btnLoadSales);
         controlPanel.add(btnSearchPrice);
         controlPanel.add(btnUpdateInfo);
         controlPanel.add(btnReplenish);
         controlPanel.add(btnChangePassword);
+        controlPanel.add(btnDailySalesTotal);
+        controlPanel.add(btnMonthlySalesTotal);
+        controlPanel.add(btnDailyDrinkSales);
+        controlPanel.add(btnMonthlyDrinkSales);
         add(controlPanel, BorderLayout.SOUTH);
     }
 
@@ -180,6 +219,152 @@ public class AdminForm extends JFrame {
         }
         sb.append("----------------------------------------------------\n");
         sb.append(">> 시스템 누적 총 합산 매출액: ").append(total).append("원\n");
+        logArea.setText(sb.toString());
+    }
+
+    private void displayDailySalesTotal() {
+        String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
+        if (date == null || date.trim().isEmpty())
+            return;
+        File file = new File("daily_sales.txt");
+        if (!file.exists()) {
+            logArea.setText("[안내] daily_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
+            return;
+        }
+
+        int total = 0;
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] tokens = line.split("\\|");
+                if (tokens.length >= 4 && tokens[0].equals(date)) {
+                    int price = Integer.parseInt(tokens[3].trim());
+                    total += tokens[1].equals("CANCEL") ? -price : price;
+                }
+            }
+        } catch (Exception ex) {
+            logArea.setText("[오류] 일별 매출 파일을 읽는 중 문제가 발생했습니다.");
+            return;
+        }
+
+        logArea.setText("--- [일별 매출 총합] ---\n" + date + " : " + total + "원");
+    }
+
+    private void displayMonthlySalesTotal() {
+        String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
+        if (month == null || month.trim().isEmpty())
+            return;
+        File file = new File("monthly_sales.txt");
+        if (!file.exists()) {
+            logArea.setText("[안내] monthly_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
+            return;
+        }
+
+        int total = 0;
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] tokens = line.split("\\|");
+                if (tokens.length >= 4 && tokens[0].equals(month)) {
+                    int price = Integer.parseInt(tokens[3].trim());
+                    total += tokens[1].equals("CANCEL") ? -price : price;
+                }
+            }
+        } catch (Exception ex) {
+            logArea.setText("[오류] 월별 매출 파일을 읽는 중 문제가 발생했습니다.");
+            return;
+        }
+
+        logArea.setText("--- [월별 매출 총합] ---\n" + month + " : " + total + "원");
+    }
+
+    private void displayDailyDrinkSales() {
+        String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
+        if (date == null || date.trim().isEmpty())
+            return;
+        File file = new File("daily_sales.txt");
+        if (!file.exists()) {
+            logArea.setText("[안내] daily_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
+            return;
+        }
+
+        Map<String, Integer> totals = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] tokens = line.split("\\|");
+                if (tokens.length >= 4 && tokens[0].equals(date)) {
+                    String name = tokens[2].trim();
+                    int price = Integer.parseInt(tokens[3].trim());
+                    int amount = tokens[1].equals("CANCEL") ? -price : price;
+                    totals.put(name, totals.getOrDefault(name, 0) + amount);
+                }
+            }
+        } catch (Exception ex) {
+            logArea.setText("[오류] 일별 음료 매출 파일을 읽는 중 문제가 발생했습니다.");
+            return;
+        }
+
+        if (totals.isEmpty()) {
+            logArea.setText("[안내] 선택한 날짜의 매출 기록이 없습니다: " + date);
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("--- [각 음료 일별 매출] ---\n");
+        sb.append(date).append("\n");
+        int total = 0;
+        for (Map.Entry<String, Integer> entry : totals.entrySet()) {
+            sb.append(entry.getKey()).append(" : ").append(entry.getValue()).append("원\n");
+            total += entry.getValue();
+        }
+        sb.append("----------------------------\n");
+        sb.append("총합: ").append(total).append("원\n");
+        logArea.setText(sb.toString());
+    }
+
+    private void displayMonthlyDrinkSales() {
+        String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
+        if (month == null || month.trim().isEmpty())
+            return;
+        File file = new File("monthly_sales.txt");
+        if (!file.exists()) {
+            logArea.setText("[안내] monthly_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
+            return;
+        }
+
+        Map<String, Integer> totals = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] tokens = line.split("\\|");
+                if (tokens.length >= 4 && tokens[0].equals(month)) {
+                    String name = tokens[2].trim();
+                    int price = Integer.parseInt(tokens[3].trim());
+                    int amount = tokens[1].equals("CANCEL") ? -price : price;
+                    totals.put(name, totals.getOrDefault(name, 0) + amount);
+                }
+            }
+        } catch (Exception ex) {
+            logArea.setText("[오류] 월별 음료 매출 파일을 읽는 중 문제가 발생했습니다.");
+            return;
+        }
+
+        if (totals.isEmpty()) {
+            logArea.setText("[안내] 선택한 월의 매출 기록이 없습니다: " + month);
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("--- [각 음료 월별 매출] ---\n");
+        sb.append(month).append("\n");
+        int total = 0;
+        for (Map.Entry<String, Integer> entry : totals.entrySet()) {
+            sb.append(entry.getKey()).append(" : ").append(entry.getValue()).append("원\n");
+            total += entry.getValue();
+        }
+        sb.append("-----------------------------\n");
+        sb.append("총합: ").append(total).append("원\n");
         logArea.setText(sb.toString());
     }
 }

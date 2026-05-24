@@ -8,6 +8,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Stack;
 
@@ -36,6 +38,11 @@ public class VendingMachineForm extends JFrame {
     private int[] machineCoinStock = { 10, 10, 10, 10 };
     private final int[] COIN_VALUES = { 500, 100, 50, 10 };
     private static final String ADMIN_PASSWORD_FILE = "admin_pwd.txt";
+    private static final String SALES_FILE = "sales.txt";
+    private static final String DAILY_SALES_FILE = "daily_sales.txt";
+    private static final String MONTHLY_SALES_FILE = "monthly_sales.txt";
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_DATE;
+    private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
     private String adminPassword;
 
     private JLabel balanceLabel;
@@ -379,10 +386,24 @@ public class VendingMachineForm extends JFrame {
     }
 
     private void saveSalesRecordToFile(String command, String name, int price) {
-        try (PrintWriter pw = new PrintWriter(new FileWriter("sales.txt", true))) {
-            pw.println(command + "|" + name + "|" + price);
-        } catch (Exception ex) {
+        appendLineToFile(SALES_FILE, command + "|" + name + "|" + price);
+        appendLineToFile(DAILY_SALES_FILE, getCurrentDate() + "|" + command + "|" + name + "|" + price);
+        appendLineToFile(MONTHLY_SALES_FILE, getCurrentMonth() + "|" + command + "|" + name + "|" + price);
+    }
+
+    private void appendLineToFile(String filename, String line) {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(filename, true))) {
+            pw.println(line);
+        } catch (Exception ignored) {
         }
+    }
+
+    private String getCurrentDate() {
+        return LocalDate.now().format(DATE_FORMAT);
+    }
+
+    private String getCurrentMonth() {
+        return LocalDate.now().format(MONTH_FORMAT);
     }
 
     private void startBackgroundNetworkEngine() {
