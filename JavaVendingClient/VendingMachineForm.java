@@ -37,10 +37,15 @@ public class VendingMachineForm extends JFrame {
     // [요구사항] 거스름돈 기본 재고 (500원, 100원, 50원, 10원 각 10개씩)
     private int[] machineCoinStock = { 10, 10, 10, 10 };
     private final int[] COIN_VALUES = { 500, 100, 50, 10 };
+    private static final int[] MINIMUM_COIN_RESERVE = { 1, 2, 2, 2 };
     private static final String ADMIN_PASSWORD_FILE = "admin_pwd.txt";
     private static final String SALES_FILE = "sales.txt";
     private static final String DAILY_SALES_FILE = "daily_sales.txt";
     private static final String MONTHLY_SALES_FILE = "monthly_sales.txt";
+    private static final String DRINK_INFO_FILE = "drink_info.txt";
+    private static final String COIN_STOCK_FILE = "coin_stock.txt";
+    private static final String STOCK_LOG_FILE = "stock_log.txt";
+    private static final String CASH_COLLECTION_FILE = "cash_collection.txt";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_DATE;
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
     private String adminPassword;
@@ -52,6 +57,7 @@ public class VendingMachineForm extends JFrame {
 
     private String[] drinkNames = { "믹스커피", "고급믹스커피", "물", "캔커피", "이온음료", "고급캔커피", "탄산음료", "특화음료" };
     private int[] drinkPrices = { 200, 300, 450, 500, 550, 700, 750, 800 };
+    private int[] drinkStocks = { 10, 10, 10, 10, 10, 10, 10, 10 };
 
     private CircularQueue networkQueue = new CircularQueue(20);
     private Socket socket;
@@ -59,7 +65,10 @@ public class VendingMachineForm extends JFrame {
     private boolean isNetworkActive = true;
 
     public VendingMachineForm() {
+        loadDrinkInfo();
+        loadCoinStock();
         initializeInventory();
+        saveDrinkInfo();
         loadAdminPassword();
         startBackgroundNetworkEngine();
 
@@ -166,7 +175,7 @@ public class VendingMachineForm extends JFrame {
     // [요구사항] 재고 기본값 10개 초기화 연결 리스트
     private void initializeInventory() {
         for (int i = 0; i < drinkNames.length; i++) {
-            DrinkNode newNode = new DrinkNode(drinkNames[i], drinkPrices[i], 10);
+            DrinkNode newNode = new DrinkNode(drinkNames[i], drinkPrices[i], drinkStocks[i]);
             if (head == null)
                 head = newNode;
             else {
@@ -234,6 +243,7 @@ public class VendingMachineForm extends JFrame {
 
         // 정상 반환 확정: 재고 동기화 및 메모리 해제
         machineCoinStock = tempStock;
+        saveCoinStock();
         JOptionPane.showMessageDialog(this, changeMsg.toString() + "\n반환 완료되었습니다.");
 
         // [동적 할당 해제] 화폐가 반환되었으므로 배열 클리어 및 참조 초기화
@@ -281,6 +291,10 @@ public class VendingMachineForm extends JFrame {
         purchaseStack.push(drink.getName());
         networkQueue.enqueue("SALE|" + drink.getName() + "|" + drink.getPrice());
         saveSalesRecordToFile("SALE", drink.getName(), drink.getPrice());
+        saveDrinkInfo();
+        if (drink.getStock() == 0) {
+            logStockChange("DEPLETED", drink.getName(), -1, 0);
+        }
 
         JOptionPane.showMessageDialog(this, drink.getName() + " 배출 완료!");
         updateUIState();
@@ -301,6 +315,7 @@ public class VendingMachineForm extends JFrame {
 
             networkQueue.enqueue("CANCEL|" + drink.getName() + "|" + drink.getPrice());
             saveSalesRecordToFile("CANCEL", drink.getName(), drink.getPrice());
+            saveDrinkInfo();
 
             JOptionPane.showMessageDialog(this, "'" + lastDrinkName + "' 구매 취소 및 금액 환불 완료!");
             updateUIState();
@@ -406,6 +421,112 @@ public class VendingMachineForm extends JFrame {
         return LocalDate.now().format(MONTH_FORMAT);
     }
 
+    private void loadDrinkInfo() {
+        File file = new File(DRINK_INFO_FILE);
+        if (file.exists()) {
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                ArrayList<String> lines = new ArrayList<>();
+                String line;
+                while ((line = br.readLine()) != null) {
+                    lines.add(line);
+                }
+                if (lines.size() == drinkNames.length) {
+                    for (int i = 0; i < lines.size(); i++) {
+                        String[] tokens = lines.get(i).split("\\|");
+                        if (tokens.length >= 3) {
+                            drinkNames[i] = tokens[0].trim();
+                            drinkPrices[i] = Integer.parseInt(tokens[1].trim());
+                            drinkStocks[i] = Integer.parseInt(tokens[2].trim());
+                        }
+                    }
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        saveDrinkInfo();
+    }
+
+    private void saveDrinkInfo() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(DRINK_INFO_FILE, false))) {
+            DrinkNode current = head;
+            while (current != null) {
+                pw.println(current.getName() + "|" + current.getPrice() + "|" + current.getStock());
+                current = current.getNext();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void loadCoinStock() {
+        File file = new File(COIN_STOCK_FILE);
+        if (file.exists()) {
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line = br.readLine();
+                if (line != null) {
+                    String[] tokens = line.split("\\|");
+                    if (tokens.length == machineCoinStock.length) {
+                        for (int i = 0; i < machineCoinStock.length; i++) {
+                            machineCoinStock[i] = Integer.parseInt(tokens[i].trim());
+                        }
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        saveCoinStock();
+    }
+
+    private void saveCoinStock() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(COIN_STOCK_FILE, false))) {
+            for (int i = 0; i < machineCoinStock.length; i++) {
+                pw.print(machineCoinStock[i]);
+                if (i < machineCoinStock.length - 1)
+                    pw.print("|");
+            }
+            pw.println();
+        } catch (Exception ignored) {
+        }
+    }
+
+    public String getCashStatusSummary() {
+        StringBuilder sb = new StringBuilder();
+        int total = 0;
+        sb.append("--- [자판기 화폐 현황] ---\n");
+        for (int i = 0; i < COIN_VALUES.length; i++) {
+            sb.append(COIN_VALUES[i]).append("원: ").append(machineCoinStock[i]).append("개\n");
+            total += machineCoinStock[i] * COIN_VALUES[i];
+        }
+        sb.append("-----------------------\n");
+        sb.append("총 현금 보유액: ").append(total).append("원\n");
+        sb.append("최소 보유 잔여: 500원 1개, 100원 2개, 50원 2개, 10원 2개\n");
+        return sb.toString();
+    }
+
+    public int collectCashFromMachine() {
+        int collectedTotal = 0;
+        for (int i = 0; i < machineCoinStock.length; i++) {
+            int retain = MINIMUM_COIN_RESERVE[i];
+            if (machineCoinStock[i] > retain) {
+                int amount = (machineCoinStock[i] - retain) * COIN_VALUES[i];
+                collectedTotal += amount;
+                machineCoinStock[i] = retain;
+            }
+        }
+        if (collectedTotal > 0) {
+            saveCoinStock();
+            appendLineToFile(CASH_COLLECTION_FILE,
+                    getCurrentDate() + "|COLLECT|" + collectedTotal + "|reserve=" + MINIMUM_COIN_RESERVE[0] + "," + MINIMUM_COIN_RESERVE[1] + "," + MINIMUM_COIN_RESERVE[2] + "," + MINIMUM_COIN_RESERVE[3]);
+        }
+        return collectedTotal;
+    }
+
+    private void logStockChange(String event, String name, int amount, int stock) {
+        appendLineToFile(STOCK_LOG_FILE,
+                getCurrentDate() + "|" + event + "|" + name + "|" + amount + "|" + stock);
+    }
+
     private void startBackgroundNetworkEngine() {
         Thread networkWorker = new Thread(new Runnable() {
             @Override
@@ -448,6 +569,8 @@ public class VendingMachineForm extends JFrame {
         DrinkNode drink = findDrinkNode(name);
         if (drink != null) {
             drink.setStock(drink.getStock() + amount);
+            saveDrinkInfo();
+            logStockChange("REPLENISHED", drink.getName(), amount, drink.getStock());
         }
     }
 
@@ -467,6 +590,8 @@ public class VendingMachineForm extends JFrame {
                         pField.set(drink, newPrice);
                     } catch (Exception e) {
                     }
+                    saveDrinkInfo();
+                    logStockChange("INFO_UPDATED", newName, 0, drink.getStock());
                     break;
                 }
             }

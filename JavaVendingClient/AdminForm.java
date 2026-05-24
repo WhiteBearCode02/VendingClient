@@ -48,7 +48,7 @@ public class AdminForm extends JFrame {
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
         // 하단 영역: 제어 기능 버튼 모음 패널
-        JPanel controlPanel = new JPanel(new GridLayout(5, 2, 5, 5));
+        JPanel controlPanel = new JPanel(new GridLayout(6, 2, 5, 5));
 
         JButton btnLoadSales = new JButton("1. 매출 내역 정렬 확인 (Sort)");
         JButton btnSearchPrice = new JButton("2. 특정 가격 상품 검색 (BST)");
@@ -59,6 +59,8 @@ public class AdminForm extends JFrame {
         JButton btnMonthlySalesTotal = new JButton("7. 월별 매출 총합 조회");
         JButton btnDailyDrinkSales = new JButton("8. 각 음료 일별 매출 조회");
         JButton btnMonthlyDrinkSales = new JButton("9. 각 음료 월별 매출 조회");
+        JButton btnCashStatus = new JButton("10. 화폐 현황 조회");
+        JButton btnCollectCash = new JButton("11. 수금 실행");
 
         // [★ 알고리즘 통합 ★] 1. 파일에서 매출을 읽어와 버블 정렬 알고리즘을 가동하는 이벤트 리스너
         btnLoadSales.addActionListener(new ActionListener() {
@@ -164,6 +166,25 @@ public class AdminForm extends JFrame {
             }
         });
 
+        btnCashStatus.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                logArea.setText(mainForm.getCashStatusSummary());
+            }
+        });
+
+        btnCollectCash.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int collected = mainForm.collectCashFromMachine();
+                if (collected > 0) {
+                    JOptionPane.showMessageDialog(null, "수금 완료: " + collected + "원(최소 잔여 화폐를 남겼습니다).");
+                } else {
+                    JOptionPane.showMessageDialog(null, "수금할 수 있는 금액이 없습니다. 최소 잔여 화폐를 먼저 확인하세요.", "수금 실패", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+        });
+
         controlPanel.add(btnLoadSales);
         controlPanel.add(btnSearchPrice);
         controlPanel.add(btnUpdateInfo);
@@ -173,6 +194,8 @@ public class AdminForm extends JFrame {
         controlPanel.add(btnMonthlySalesTotal);
         controlPanel.add(btnDailyDrinkSales);
         controlPanel.add(btnMonthlyDrinkSales);
+        controlPanel.add(btnCashStatus);
+        controlPanel.add(btnCollectCash);
         add(controlPanel, BorderLayout.SOUTH);
     }
 
