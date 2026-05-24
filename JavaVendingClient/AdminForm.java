@@ -63,8 +63,9 @@ public class AdminForm extends JFrame {
         JButton btnMonthlyDrinkSales = new JButton("9. 각 음료 월별 매출 조회");
         JButton btnServerDailySummary = new JButton("10. 서버 일별 집계 조회");
         JButton btnServerMonthlySummary = new JButton("11. 서버 월별 집계 조회");
-        JButton btnCashStatus = new JButton("12. 화폐 현황 조회");
-        JButton btnCollectCash = new JButton("13. 수금 실행");
+        JButton btnServerStatus = new JButton("12. 서버 상태 조회");
+        JButton btnCashStatus = new JButton("13. 화폐 현황 조회");
+        JButton btnCollectCash = new JButton("14. 수금 실행");
 
         // [★ 알고리즘 통합 ★] 1. 파일에서 매출을 읽어와 버블 정렬 알고리즘을 가동하는 이벤트 리스너
         btnLoadSales.addActionListener(new ActionListener() {
@@ -184,6 +185,13 @@ public class AdminForm extends JFrame {
             }
         });
 
+        btnServerStatus.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayServerStatus();
+            }
+        });
+
         btnCashStatus.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -214,6 +222,7 @@ public class AdminForm extends JFrame {
         controlPanel.add(btnMonthlyDrinkSales);
         controlPanel.add(btnServerDailySummary);
         controlPanel.add(btnServerMonthlySummary);
+        controlPanel.add(btnServerStatus);
         controlPanel.add(btnCashStatus);
         controlPanel.add(btnCollectCash);
         add(controlPanel, BorderLayout.SOUTH);
@@ -516,6 +525,11 @@ public class AdminForm extends JFrame {
         if (month == null || month.trim().isEmpty())
             return;
         String response = mainForm.queryServer("DRINK_MONTHLY", month);
+        logArea.setText(response);
+    }
+
+    private void displayServerStatus() {
+        String response = mainForm.queryServer("SERVER_STATUS", "");
         logArea.setText(response);
     }
 }

@@ -59,6 +59,8 @@ public class VendingMachineForm extends JFrame {
     private Stack<String> purchaseStack = new Stack<>();
     private JButton[] drinkButtons = new JButton[8];
     private String machineId = "VM-" + UUID.randomUUID().toString().substring(0, 8);
+    private String serverHost = "127.0.0.1";
+    private int serverPort = 8080;
 
     private String[] drinkNames = { "믹스커피", "고급믹스커피", "물", "캔커피", "이온음료", "고급캔커피", "탄산음료", "특화음료" };
     private int[] drinkPrices = { 200, 300, 450, 500, 550, 700, 750, 800 };
@@ -72,6 +74,12 @@ public class VendingMachineForm extends JFrame {
     private final Object responseLock = new Object();
 
     public VendingMachineForm() {
+        this("127.0.0.1", 8080);
+    }
+
+    public VendingMachineForm(String serverHost, int serverPort) {
+        this.serverHost = serverHost;
+        this.serverPort = serverPort;
         loadDrinkInfo();
         loadCoinStock();
         initializeInventory();
@@ -297,7 +305,8 @@ public class VendingMachineForm extends JFrame {
 
         // 동적 배열에서 가장 오래된 화폐부터 결제액만큼 차감 논리 적용 (생략: 총액으로 계산)
         purchaseStack.push(drink.getName());
-        sendNetworkPacket("SALE|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
+        sendNetworkPacket(
+                "SALE|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
         saveSalesRecordToFile("SALE", drink.getName(), drink.getPrice());
         saveDrinkInfo();
         sendNetworkPacket("STOCK_UPDATE|" + machineId + "|" + drink.getName() + "|" + drink.getStock());
@@ -322,7 +331,8 @@ public class VendingMachineForm extends JFrame {
             currentTotalMoney += drink.getPrice();
             drink.setStock(drink.getStock() + 1);
 
-            sendNetworkPacket("CANCEL|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
+            sendNetworkPacket(
+                    "CANCEL|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
             saveSalesRecordToFile("CANCEL", drink.getName(), drink.getPrice());
             saveDrinkInfo();
             sendNetworkPacket("STOCK_UPDATE|" + machineId + "|" + drink.getName() + "|" + drink.getStock());
@@ -429,7 +439,8 @@ public class VendingMachineForm extends JFrame {
     private void sendCurrentInventoryToServer() {
         DrinkNode current = head;
         while (current != null) {
-            sendNetworkPacket("INVENTORY|" + machineId + "|" + current.getName() + "|" + current.getPrice() + "|" + current.getStock());
+            sendNetworkPacket("INVENTORY|" + machineId + "|" + current.getName() + "|" + current.getPrice() + "|"
+                    + current.getStock());
             current = current.getNext();
         }
     }
@@ -570,7 +581,7 @@ public class VendingMachineForm extends JFrame {
             @Override
             public void run() {
                 try {
-                    socket = new Socket("127.0.0.1", 8080);
+                    socket = new Socket(serverHost, serverPort);
                     writer = new PrintWriter(socket.getOutputStream(), true);
                     BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(socket.getInputStream()));
 
@@ -740,8 +751,21 @@ public class VendingMachineForm extends JFrame {
     }
 
     public static void main(String[] args) {
+        String host = "127.0.0.1";
+        int port = 8080;
+        if (args.length >= 1 && args[0] != null && !args[0].trim().isEmpty()) {
+            host = args[0].trim();
+        }
+        if (args.length >= 2) {
+            try {
+                port = Integer.parseInt(args[1].trim());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        final String finalHost = host;
+        final int finalPort = port;
         SwingUtilities.invokeLater(() -> {
-            new VendingMachineForm().setVisible(true);
+            new VendingMachineForm(finalHost, finalPort).setVisible(true);
         });
     }
 }
