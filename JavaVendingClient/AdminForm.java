@@ -8,6 +8,8 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -206,10 +208,29 @@ public class AdminForm extends JFrame {
         try (BufferedReader br = new BufferedReader(new FileReader("sales.txt"))) {
             String line;
             while ((line = br.readLine()) != null) {
-                // 저장 포맷팅 분리 파싱: "SALE|음료명|가격"
                 String[] tokens = line.split("\\|");
-                if (tokens.length >= 3 && tokens[0].equals("SALE")) {
-                    list.add(new SalesData(tokens[1], Integer.parseInt(tokens[2])));
+                String command;
+                String name;
+                int price;
+                if (tokens.length >= 4 && (tokens[0].matches("\\d{4}-\\d{2}-\\d{2}") || tokens[1].equals("SALE"))) {
+                    if (tokens[0].matches("\\d{4}-\\d{2}-\\d{2}")) {
+                        command = tokens[1];
+                        name = tokens[2];
+                        price = Integer.parseInt(tokens[3]);
+                    } else {
+                        command = tokens[0];
+                        name = tokens[1];
+                        price = Integer.parseInt(tokens[2]);
+                    }
+                } else if (tokens.length >= 3) {
+                    command = tokens[0];
+                    name = tokens[1];
+                    price = Integer.parseInt(tokens[2]);
+                } else {
+                    continue;
+                }
+                if (command.equals("SALE")) {
+                    list.add(new SalesData(name, price));
                 }
             }
         } catch (Exception ex) {
@@ -244,12 +265,76 @@ public class AdminForm extends JFrame {
         sb.append(">> 시스템 누적 총 합산 매출액: ").append(total).append("원\n");
         logArea.setText(sb.toString());
     }
+    private void ensureAggregateSalesFiles() {
+        File daily = new File("daily_sales.txt");
+        File monthly = new File("monthly_sales.txt");
+        File sales = new File("sales.txt");
+        if (!sales.exists())
+            return;
+        if (daily.exists() && monthly.exists())
+            return;
 
+        ArrayList<String> dailyLines = new ArrayList<>();
+        ArrayList<String> monthlyLines = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(sales))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] tokens = line.split("\\|");
+                if (tokens.length < 3)
+                    continue;
+
+                String date;
+                String command;
+                String name;
+                String price;
+                if (tokens.length >= 4 && (tokens[0].matches("\\d{4}-\\d{2}-\\d{2}") || tokens[1].equals("SALE") || tokens[1].equals("CANCEL"))) {
+                    if (tokens[0].matches("\\d{4}-\\d{2}-\\d{2}")) {
+                        date = tokens[0].trim();
+                        command = tokens[1].trim();
+                        name = tokens[2].trim();
+                        price = tokens[3].trim();
+                    } else {
+                        date = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_DATE);
+                        command = tokens[0].trim();
+                        name = tokens[1].trim();
+                        price = tokens[2].trim();
+                    }
+                } else {
+                    date = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_DATE);
+                    command = tokens[0].trim();
+                    name = tokens[1].trim();
+                    price = tokens[2].trim();
+                }
+
+                dailyLines.add(date + "|" + command + "|" + name + "|" + price);
+                monthlyLines.add(date.substring(0, 7) + "|" + command + "|" + name + "|" + price);
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (!daily.exists())
+            writeLinesToFile(daily, dailyLines);
+        if (!monthly.exists())
+            writeLinesToFile(monthly, monthlyLines);
+    }
+
+    private void writeLinesToFile(File file, ArrayList<String> lines) {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(file, false))) {
+            for (String line : lines) {
+                pw.println(line);
+            }
+        } catch (Exception ignored) {
+        }
+    }
     private void displayDailySalesTotal() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
             return;
         File file = new File("daily_sales.txt");
+        if (!file.exists()) {
+            ensureAggregateSalesFiles();
+        }
         if (!file.exists()) {
             logArea.setText("[안내] daily_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
             return;
@@ -279,6 +364,9 @@ public class AdminForm extends JFrame {
             return;
         File file = new File("monthly_sales.txt");
         if (!file.exists()) {
+            ensureAggregateSalesFiles();
+        }
+        if (!file.exists()) {
             logArea.setText("[안내] monthly_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
             return;
         }
@@ -306,6 +394,9 @@ public class AdminForm extends JFrame {
         if (date == null || date.trim().isEmpty())
             return;
         File file = new File("daily_sales.txt");
+        if (!file.exists()) {
+            ensureAggregateSalesFiles();
+        }
         if (!file.exists()) {
             logArea.setText("[안내] daily_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
             return;
@@ -351,6 +442,9 @@ public class AdminForm extends JFrame {
         if (month == null || month.trim().isEmpty())
             return;
         File file = new File("monthly_sales.txt");
+        if (!file.exists()) {
+            ensureAggregateSalesFiles();
+        }
         if (!file.exists()) {
             logArea.setText("[안내] monthly_sales.txt 파일이 존재하지 않습니다. 판매 이력을 먼저 생성하세요.");
             return;
