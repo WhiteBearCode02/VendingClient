@@ -7,11 +7,15 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Stack;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 // [자료구조] 특정 가격 검색 가속을 위한 이진 탐색 트리(BST) 노드
 class TreeNode {
@@ -54,6 +58,7 @@ public class VendingMachineForm extends JFrame {
     private DrinkNode head = null;
     private Stack<String> purchaseStack = new Stack<>();
     private JButton[] drinkButtons = new JButton[8];
+    private String machineId = "VM-" + UUID.randomUUID().toString().substring(0, 8);
 
     private String[] drinkNames = { "믹스커피", "고급믹스커피", "물", "캔커피", "이온음료", "고급캔커피", "탄산음료", "특화음료" };
     private int[] drinkPrices = { 200, 300, 450, 500, 550, 700, 750, 800 };
@@ -63,6 +68,8 @@ public class VendingMachineForm extends JFrame {
     private Socket socket;
     private PrintWriter writer;
     private boolean isNetworkActive = true;
+    private Map<String, String> pendingResponses = new ConcurrentHashMap<>();
+    private final Object responseLock = new Object();
 
     public VendingMachineForm() {
         loadDrinkInfo();
@@ -71,6 +78,7 @@ public class VendingMachineForm extends JFrame {
         saveDrinkInfo();
         loadAdminPassword();
         startBackgroundNetworkEngine();
+        sendCurrentInventoryToServer();
 
         setTitle("음료 자판기");
         setSize(500, 800);
@@ -289,9 +297,10 @@ public class VendingMachineForm extends JFrame {
 
         // 동적 배열에서 가장 오래된 화폐부터 결제액만큼 차감 논리 적용 (생략: 총액으로 계산)
         purchaseStack.push(drink.getName());
-        networkQueue.enqueue("SALE|" + drink.getName() + "|" + drink.getPrice());
+        sendNetworkPacket("SALE|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
         saveSalesRecordToFile("SALE", drink.getName(), drink.getPrice());
         saveDrinkInfo();
+        sendNetworkPacket("STOCK_UPDATE|" + machineId + "|" + drink.getName() + "|" + drink.getStock());
         if (drink.getStock() == 0) {
             logStockChange("DEPLETED", drink.getName(), -1, 0);
         }
@@ -313,9 +322,10 @@ public class VendingMachineForm extends JFrame {
             currentTotalMoney += drink.getPrice();
             drink.setStock(drink.getStock() + 1);
 
-            networkQueue.enqueue("CANCEL|" + drink.getName() + "|" + drink.getPrice());
+            sendNetworkPacket("CANCEL|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
             saveSalesRecordToFile("CANCEL", drink.getName(), drink.getPrice());
             saveDrinkInfo();
+            sendNetworkPacket("STOCK_UPDATE|" + machineId + "|" + drink.getName() + "|" + drink.getStock());
 
             JOptionPane.showMessageDialog(this, "'" + lastDrinkName + "' 구매 취소 및 금액 환불 완료!");
             updateUIState();
@@ -352,7 +362,9 @@ public class VendingMachineForm extends JFrame {
                     adminPassword = line.trim();
                     return;
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                System.err.println("[로드 오류] 관리자 암호 파일을 읽는 중 문제가 발생했습니다.");
+                e.printStackTrace();
             }
         }
 
@@ -363,7 +375,9 @@ public class VendingMachineForm extends JFrame {
     private void saveAdminPassword(String pwd) {
         try (PrintWriter writer = new PrintWriter(new FileWriter(ADMIN_PASSWORD_FILE, false))) {
             writer.println(pwd);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("[저장 오류] 관리자 암호 파일을 쓰는 중 문제가 발생했습니다.");
+            e.printStackTrace();
         }
     }
 
@@ -406,10 +420,25 @@ public class VendingMachineForm extends JFrame {
         appendLineToFile(MONTHLY_SALES_FILE, getCurrentMonth() + "|" + command + "|" + name + "|" + price);
     }
 
+    private void sendNetworkPacket(String packet) {
+        if (packet == null || packet.trim().isEmpty() || !isNetworkActive)
+            return;
+        networkQueue.enqueue(packet);
+    }
+
+    private void sendCurrentInventoryToServer() {
+        DrinkNode current = head;
+        while (current != null) {
+            sendNetworkPacket("INVENTORY|" + machineId + "|" + current.getName() + "|" + current.getPrice() + "|" + current.getStock());
+            current = current.getNext();
+        }
+    }
+
     private void appendLineToFile(String filename, String line) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(filename, true))) {
             pw.println(line);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -441,7 +470,9 @@ public class VendingMachineForm extends JFrame {
                     }
                     return;
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                System.err.println("[로드 오류] 음료 정보 파일을 읽는 중 문제가 발생했습니다.");
+                e.printStackTrace();
             }
         }
         saveDrinkInfo();
@@ -454,7 +485,9 @@ public class VendingMachineForm extends JFrame {
                 pw.println(current.getName() + "|" + current.getPrice() + "|" + current.getStock());
                 current = current.getNext();
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("[저장 오류] 음료 정보 파일을 쓰는 중 문제가 발생했습니다.");
+            e.printStackTrace();
         }
     }
 
@@ -472,7 +505,9 @@ public class VendingMachineForm extends JFrame {
                         return;
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                System.err.println("[로드 오류] 동전 재고 파일을 읽는 중 문제가 발생했습니다.");
+                e.printStackTrace();
             }
         }
         saveCoinStock();
@@ -486,7 +521,9 @@ public class VendingMachineForm extends JFrame {
                     pw.print("|");
             }
             pw.println();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("[저장 오류] 동전 재고 파일을 쓰는 중 문제가 발생했습니다.");
+            e.printStackTrace();
         }
     }
 
@@ -535,7 +572,28 @@ public class VendingMachineForm extends JFrame {
                 try {
                     socket = new Socket("127.0.0.1", 8080);
                     writer = new PrintWriter(socket.getOutputStream(), true);
+                    BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(socket.getInputStream()));
+
+                    Thread responseListener = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                String responseLine;
+                                while (isNetworkActive && (responseLine = reader.readLine()) != null) {
+                                    handleServerResponse(responseLine);
+                                }
+                            } catch (Exception e) {
+                                System.err.println("[네트워크 오류] 서버 응답 수신 중 문제가 발생했습니다.");
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                    responseListener.setDaemon(true);
+                    responseListener.start();
+
                 } catch (Exception e) {
+                    System.err.println("[네트워크 오류] 서버 연결에 실패했습니다. 서버가 실행 중인지 확인하세요.");
+                    e.printStackTrace();
                 }
 
                 while (isNetworkActive) {
@@ -547,12 +605,52 @@ public class VendingMachineForm extends JFrame {
                     try {
                         Thread.sleep(50);
                     } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
                         break;
                     }
                 }
             }
         });
+        networkWorker.setDaemon(true);
         networkWorker.start();
+    }
+
+    private void handleServerResponse(String responseLine) {
+        if (responseLine == null || responseLine.trim().isEmpty())
+            return;
+        String[] tokens = responseLine.split("\\|", 3);
+        if (tokens.length < 3)
+            return;
+        if (tokens[0].equals("RESPONSE")) {
+            String requestId = tokens[1].trim();
+            String payload = tokens[2];
+            pendingResponses.put(requestId, payload);
+            synchronized (responseLock) {
+                responseLock.notifyAll();
+            }
+        }
+    }
+
+    public String queryServer(String queryType, String queryParam) {
+        if (writer == null) {
+            return "[오류] 서버에 연결되어 있지 않습니다.";
+        }
+        String requestId = UUID.randomUUID().toString();
+        pendingResponses.put(requestId, null);
+        sendNetworkPacket("QUERY|" + requestId + "|" + queryType + "|" + queryParam);
+        long start = System.currentTimeMillis();
+        synchronized (responseLock) {
+            while (pendingResponses.get(requestId) == null && System.currentTimeMillis() - start < 5000) {
+                try {
+                    responseLock.wait(5000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        String result = pendingResponses.remove(requestId);
+        return result != null ? result : "[오류] 서버 응답을 받지 못했습니다.";
     }
 
     private void shutdownNetworkEngine() {
@@ -563,6 +661,8 @@ public class VendingMachineForm extends JFrame {
             if (socket != null)
                 socket.close();
         } catch (Exception e) {
+            System.err.println("[종료 오류] 네트워크 엔진을 종료하는 중 문제가 발생했습니다.");
+            e.printStackTrace();
         }
     }
 
@@ -572,6 +672,7 @@ public class VendingMachineForm extends JFrame {
             drink.setStock(drink.getStock() + amount);
             saveDrinkInfo();
             logStockChange("REPLENISHED", drink.getName(), amount, drink.getStock());
+            sendNetworkPacket("STOCK_UPDATE|" + machineId + "|" + drink.getName() + "|" + drink.getStock());
         }
     }
 
@@ -590,9 +691,12 @@ public class VendingMachineForm extends JFrame {
                         pField.setAccessible(true);
                         pField.set(drink, newPrice);
                     } catch (Exception e) {
+                        e.printStackTrace();
                     }
                     saveDrinkInfo();
                     logStockChange("INFO_UPDATED", newName, 0, drink.getStock());
+                    sendNetworkPacket("DRINK_UPDATE|" + machineId + "|" + oldName + "|" + newName + "|" + newPrice);
+                    sendCurrentInventoryToServer();
                     break;
                 }
             }

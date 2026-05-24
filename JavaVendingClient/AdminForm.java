@@ -50,7 +50,7 @@ public class AdminForm extends JFrame {
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
         // 하단 영역: 제어 기능 버튼 모음 패널
-        JPanel controlPanel = new JPanel(new GridLayout(6, 2, 5, 5));
+        JPanel controlPanel = new JPanel(new GridLayout(7, 2, 5, 5));
 
         JButton btnLoadSales = new JButton("1. 매출 내역 정렬 확인 (Sort)");
         JButton btnSearchPrice = new JButton("2. 특정 가격 상품 검색 (BST)");
@@ -61,8 +61,10 @@ public class AdminForm extends JFrame {
         JButton btnMonthlySalesTotal = new JButton("7. 월별 매출 총합 조회");
         JButton btnDailyDrinkSales = new JButton("8. 각 음료 일별 매출 조회");
         JButton btnMonthlyDrinkSales = new JButton("9. 각 음료 월별 매출 조회");
-        JButton btnCashStatus = new JButton("10. 화폐 현황 조회");
-        JButton btnCollectCash = new JButton("11. 수금 실행");
+        JButton btnServerDailySummary = new JButton("10. 서버 일별 집계 조회");
+        JButton btnServerMonthlySummary = new JButton("11. 서버 월별 집계 조회");
+        JButton btnCashStatus = new JButton("12. 화폐 현황 조회");
+        JButton btnCollectCash = new JButton("13. 수금 실행");
 
         // [★ 알고리즘 통합 ★] 1. 파일에서 매출을 읽어와 버블 정렬 알고리즘을 가동하는 이벤트 리스너
         btnLoadSales.addActionListener(new ActionListener() {
@@ -168,6 +170,20 @@ public class AdminForm extends JFrame {
             }
         });
 
+        btnServerDailySummary.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayServerDailySummary();
+            }
+        });
+
+        btnServerMonthlySummary.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayServerMonthlySummary();
+            }
+        });
+
         btnCashStatus.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -196,6 +212,8 @@ public class AdminForm extends JFrame {
         controlPanel.add(btnMonthlySalesTotal);
         controlPanel.add(btnDailyDrinkSales);
         controlPanel.add(btnMonthlyDrinkSales);
+        controlPanel.add(btnServerDailySummary);
+        controlPanel.add(btnServerMonthlySummary);
         controlPanel.add(btnCashStatus);
         controlPanel.add(btnCollectCash);
         add(controlPanel, BorderLayout.SOUTH);
@@ -483,5 +501,21 @@ public class AdminForm extends JFrame {
         sb.append("-----------------------------\n");
         sb.append("총합: ").append(total).append("원\n");
         logArea.setText(sb.toString());
+    }
+
+    private void displayServerDailySummary() {
+        String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
+        if (date == null || date.trim().isEmpty())
+            return;
+        String response = mainForm.queryServer("DRINK_DAILY", date);
+        logArea.setText(response);
+    }
+
+    private void displayServerMonthlySummary() {
+        String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
+        if (month == null || month.trim().isEmpty())
+            return;
+        String response = mainForm.queryServer("DRINK_MONTHLY", month);
+        logArea.setText(response);
     }
 }
