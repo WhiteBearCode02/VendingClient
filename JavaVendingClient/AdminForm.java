@@ -45,12 +45,13 @@ public class AdminForm extends JFrame {
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
         // 하단 영역: 제어 기능 버튼 모음 패널
-        JPanel controlPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+        JPanel controlPanel = new JPanel(new GridLayout(3, 2, 5, 5));
 
         JButton btnLoadSales = new JButton("1. 매출 내역 정렬 확인 (Sort)");
         JButton btnSearchPrice = new JButton("2. 특정 가격 상품 검색 (BST)");
         JButton btnUpdateInfo = new JButton("3. 음료 정보 수정");
         JButton btnReplenish = new JButton("4. 음료 재고 보충");
+        JButton btnChangePassword = new JButton("5. 관리자 비밀번호 변경");
 
         // [★ 알고리즘 통합 ★] 1. 파일에서 매출을 읽어와 버블 정렬 알고리즘을 가동하는 이벤트 리스너
         btnLoadSales.addActionListener(new ActionListener() {
@@ -98,10 +99,41 @@ public class AdminForm extends JFrame {
             }
         });
 
+        // 5. 관리자 비밀번호 변경 기능
+        btnChangePassword.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String currentPwd = JOptionPane.showInputDialog("현재 관리자 비밀번호를 입력하세요:");
+                if (currentPwd == null)
+                    return;
+
+                String newPwd = JOptionPane.showInputDialog("새 관리자 비밀번호를 입력하세요 (특수문자+숫자 포함, 8자리 이상):");
+                if (newPwd == null)
+                    return;
+
+                String confirmPwd = JOptionPane.showInputDialog("새 비밀번호를 다시 입력하세요:");
+                if (confirmPwd == null)
+                    return;
+
+                if (!newPwd.equals(confirmPwd)) {
+                    JOptionPane.showMessageDialog(null, "새 비밀번호가 서로 일치하지 않습니다.", "변경 실패", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                String result = mainForm.changeAdminPassword(currentPwd, newPwd);
+                if (result == null) {
+                    JOptionPane.showMessageDialog(null, "관리자 비밀번호가 성공적으로 변경되었습니다.");
+                } else {
+                    JOptionPane.showMessageDialog(null, result, "변경 실패", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
         controlPanel.add(btnLoadSales);
         controlPanel.add(btnSearchPrice);
         controlPanel.add(btnUpdateInfo);
         controlPanel.add(btnReplenish);
+        controlPanel.add(btnChangePassword);
         add(controlPanel, BorderLayout.SOUTH);
     }
 
