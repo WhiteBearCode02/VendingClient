@@ -1,16 +1,43 @@
 # ☕ Java Distributed Vending Machine System (자판기 통합 관리 시스템)
 
-## 📌 Project Overview
+## 📌 프로젝트 개요
 본 프로젝트는 다수의 클라이언트(자판기)가 단일 중앙 서버와 통신하며 데이터를 동기화하는 **다중 접속(Multi-Client) 자판기 시뮬레이션 시스템**입니다. 
 순수 Java와 Socket API를 활용하여 TCP/IP 기반의 실시간 통신 환경을 구축하였으며, Java Swing을 통한 GUI 프레젠테이션 계층과 비즈니스 로직 계층을 철저히 분리하여 설계했습니다. 특히 다양한 핵심 자료구조(Linked List, Stack, BST, Queue)와 알고리즘을 시스템 곳곳에 배치하여 인메모리(In-memory) 성능 최적화와 메모리 관리의 효율성을 실증한 아키텍처입니다.
 
-## 🛠️ Tech Stack & Environment
+## 🛠️ 기술 스택 및 환경
 * **Language:** Java
 * **GUI Framework:** Java Swing, AWT
 * **Network:** TCP/IP Socket (`java.net`)
 * **Persistence:** File I/O (`java.io`)
 
-## ✨ Core Features & Architecture
+## ✨ 최근 개선 사항
+- **리플렉션 코드 제거:** `DrinkNode`의 정보 업데이트 시 Java Reflection API를 사용하던 부분을 `setter` 메서드 호출로 변경하여 코드의 안정성과 가독성을 향상시켰습니다.
+- **불필요한 import 정리:** `VendingServer.java` 및 `VendingMachineForm.java` 파일에서 중복되거나 사용되지 않는 import 구문을 제거하여 코드를 깔끔하게 정리했습니다.
+
+## 🏛️ 시스템 아키텍처
+```mermaid
+graph TD
+    subgraph Client (VendingMachineForm)
+        A[GUI Event] --> B{Business Logic};
+        B --> C[Network Queue];
+        C --> D((Socket));
+    end
+
+    subgraph Server (VendingServer)
+        E((Socket)) --> F[Multi-Thread Handler];
+        F --> G{Synchronized Logic};
+        G --> H[In-Memory DB];
+        G --> I[File I/O];
+    end
+
+    D -- TCP/IP --> E;
+    E -- Response --> D;
+
+    style Client fill:#D2E9FF,stroke:#333,stroke-width:2px
+    style Server fill:#E8D2FF,stroke:#333,stroke-width:2px
+```
+
+## ⭐ 핵심 기능 및 아키텍처
 
 ### 1. 실시간 다중 접속 및 동시성 제어 (Concurrency Control)
 * 중앙 관리 서버는 다중 스레드(Multi-thread)를 통해 N개의 자판기 노드와 동시에 연결됩니다.
@@ -31,12 +58,26 @@
 * 관리자 모드 진입 시 정규표현식(Regex)을 적용하여 숫자와 특수문자가 포함된 8자리 이상의 비밀번호 복잡도를 강제합니다.
 * 화폐 투입 한도 제한(지폐 5,000원 이하, 총액 7,000원 이하) 및 기기 내 거스름돈 부족 시 예외 처리 로직을 완벽하게 구현했습니다.
 
-## 🚀 Getting Started (설치 및 실행 방법)
+## 🚀 시작하기 (설치 및 실행 방법)
 
 프로그램 실행 전, 컴파일러의 인코딩을 UTF-8로 지정하여 한글 깨짐 현상을 방지해야 합니다.
 
-**1. 서버 실행 (통합 관제 시스템)**
+**1. 전체 소스 코드 컴파일**
 ```bash
-cd JavaVendingServer
-javac -encoding UTF-8 VendingServer.java
-java VendingServer
+# 프로젝트 루트 디렉토리에서 실행
+javac -encoding UTF-8 JavaVendingClient/*.java JavaVendingServer/*.java
+```
+
+**2. 서버 실행 (통합 관제 시스템)**
+```bash
+# 프로젝트 루트 디렉토리에서 실행
+java -cp . JavaVendingServer.VendingServer [포트번호]
+# 예: java -cp . JavaVendingServer.VendingServer 8080
+```
+
+**3. 클라이언트 실행 (개별 자판기)**
+```bash
+# 프로젝트 루트 디렉토리에서 실행
+java -cp . JavaVendingClient.VendingMachineForm [서버_IP] [포트번호]
+# 예: java -cp . JavaVendingClient.VendingMachineForm 127.0.0.1 8080
+```
