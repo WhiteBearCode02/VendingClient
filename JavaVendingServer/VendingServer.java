@@ -164,7 +164,8 @@ public class VendingServer {
         }
     }
 
-    // [추가기능] 다른 서버 노드와 지속적으로 연결을 유지하며 상태 동기화를 수행하는 피어 커넥터 스레드입니다.
+    // [기능 설명] 두 개의 서버 간 실시간 동기화를 위해 피어 서버와 지속적으로 연결을 유지하는 백그라운드 스레드입니다.
+    // 연결이 끊어지면 재접속을 시도하고, 연결된 상태에서는 상태 스냅샷과 변경 패킷을 주고받습니다.
     private static void startPeerConnector(String peerHost, int peerPort) {
         Thread peerThread = new Thread(() -> {
             while (true) {
@@ -202,6 +203,8 @@ public class VendingServer {
     }
 
     // [추가기능] 현재 중앙 서버의 음료 재고와 가격 정보를 피어 서버로 스냅샷 전송합니다.
+    // [기능 설명] 현재 서버의 중앙 재고/가격 상태를 하나의 스냅샷 문자열로 만들고 피어 서버에 전송합니다.
+    // 이는 서버 간 상태 일관성을 빠르게 맞추기 위한 초기 동기화 단계입니다.
     private static void sendDBSnapshotToPeer() {
         StringBuilder state = new StringBuilder();
         synchronized (dbLock) {
@@ -235,6 +238,8 @@ public class VendingServer {
     }
 
     // [핵심 비즈니스 로직] 클라이언트 및 피어 서버로부터 수신한 모든 패킷을 파싱하여 DB를 갱신합니다.
+    // [핵심 비즈니스 로직] 클라이언트 또는 피어 서버로부터 받은 패킷을 해석하고 그에 맞는 작업을 수행합니다.
+    // 판매, 취소, 재고 업데이트, 음료 정보 변경, 상태 동기화, 쿼리 응답 등을 모두 처리합니다.
     private static void processReceivedData(String message, PrintWriter responder, boolean isReplica) {
         String[] tokens = message.split("\\|");
         if (tokens.length < 1)
@@ -432,6 +437,8 @@ public class VendingServer {
     }
 
     // [파일 I/O] 서버 재시작 시 이전 저장 상태를 읽어와 재고 및 매출 집계 데이터를 복원합니다.
+    // [기능 설명] 서버 재시작 시 이전에 저장된 상태 파일을 읽어와 재고, 매출, 집계 정보를 복원합니다.
+    // 이 메서드는 서버의 영속성을 보장하고 데이터 유실을 방지합니다.
     private static void loadStateFromFile() {
         File file = new File(STATE_FILE);
         if (!file.exists())
@@ -506,6 +513,8 @@ public class VendingServer {
     }
 
     // [파일 I/O] 현재 서버 상태를 한 줄씩 기록하여 재시작 후에도 일관된 데이터를 유지합니다.
+    // [기능 설명] 현재 서버의 중앙 재고와 매출 집계 정보를 상태 파일로 기록합니다.
+    // 재고 변경이나 매출 집계가 발생할 때마다 호출되어 서버 복구에 필요한 데이터를 영구 저장합니다.
     private static void saveStateToFile() {
         File file = new File(STATE_FILE);
         try (PrintWriter pw = new PrintWriter(new FileWriter(file, false))) {

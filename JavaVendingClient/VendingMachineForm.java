@@ -2,13 +2,20 @@
  * VendingMachineForm.java
  * ------------------
  * GUI 환경에서 동작하는 음료 자판기 판매 화면입니다.
- * 요구사항의 주요 내용 대부분을 포함하며, 다음과 같은 요소를 동작시킵니다.
- *   - 8종 음료 판매 및 재고 관리
- *   - 화폐 입력 제한 및 거스름돈 반환
- *   - 관리자 모드 진입 및 화면 분리
- *   - 파일 기반 매출/재고 데이터 저장
- *   - Socket 통신을 통한 서버 전송
- * 추가 기능: 연결 리스트 기반 음료 재고, 스택 기반 구매 취소, BST 검색, 네트워크 버퍼링 등을 구현했습니다.
+ * 이 클래스는 사용자 투입 화폐, 음료 선택, 거스름돈 반환, 관리자 모드 진입,
+ * 로컬 파일 저장 및 중앙 서버 통신을 모두 처리합니다.
+ * 주요 역할:
+ *   - 8종 음료의 재고와 가격을 연결 리스트(Linked-List)로 관리
+ *   - 화폐와 거스름돈의 입력/출력 조건을 검증하여 정상 판매만 허용
+ *   - 투입 화폐를 동적 리스트로 관리하여 결제 이후 메모리 해제와 상태 유지
+ *   - 관리자 메뉴 진입 시 판매 화면을 숨기고 독립적으로 동작하도록 분리
+ *   - 파일 기반 매출 기록, 재고 정보, 화폐 재고를 저장하고 불러오기
+ *   - 서버로 판매/취소/재고 업데이트 패킷을 전송하며, 서버 응답 알림을 수신
+ * 추가 기능:
+ *   - Stack을 이용한 구매 취소 기능
+ *   - Queue 기반 비동기 네트워크 버퍼링
+ *   - BST 기반 가격 검색 기능
+ *   - 서버 저재고 ALERT 팝업
  */
 
 import javax.swing.*;
@@ -216,7 +223,9 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
-    // [예외 처리 및 로직] 화폐 투입 (제한 금액 및 동적 할당 로직 적용)
+    // [기능 설명] 사용자가 금액 버튼을 눌렀을 때 호출됩니다.
+    // 이 메서드는 7,000원 전체 한도와 5,000원 지폐 한도를 검사하며,
+    // 통화 단위를 동적 리스트에 저장하여 후속 판매/환불 시 상태를 관리합니다.
     private void insertMoney(int amount) {
         boolean isPaper = (amount == 1000);
 
@@ -250,6 +259,8 @@ public class VendingMachineForm extends JFrame {
 
     // [추가기능] 투입된 동전을 기기 내 거스름돈 재고로 적립하는 헬퍼 메서드입니다.
     // 요구사항의 동전 가감 구현을 보강하며, 동전 반환 시 부족 여부 판단에 정확성을 높입니다.
+    // [기능 설명] 동전이 투입되었을 때 기기 내부 거스름돈 재고에도 즉시 반영합니다.
+    // 거스름돈 반환 시 현재 재고를 정확하게 파악하기 위한 보조 로직입니다.
     private void addInsertedCoinToStock(int amount) {
         for (int i = 0; i < COIN_VALUES.length; i++) {
             if (COIN_VALUES[i] == amount) {
@@ -260,7 +271,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
-    // [요구사항] 그리디 알고리즘 기반 거스름돈 반환 및 메모리 해제
+    // [기능 설명] 현재 보유한 잔액을 거스름돈으로 반환합니다.
+    // 반환 가능한 경우에만 실행되며, 반환 가능한 코인 조합을 그리디 방식으로 계산합니다.
     private void returnChangeMoney() {
         if (currentTotalMoney == 0)
             return;
@@ -326,6 +338,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [기능 설명] 사용자가 음료 버튼을 눌렀을 때 판매를 처리합니다.
+    // 재고 차감, 결제 금액 소모, 네트워크 전송, 파일 로그 저장을 모두 수행합니다.
     private void purchaseDrink(String name, int index) {
         DrinkNode drink = findDrinkNode(name);
         if (drink == null || currentTotalMoney < drink.getPrice() || drink.getStock() <= 0)
@@ -355,6 +369,8 @@ public class VendingMachineForm extends JFrame {
 
     // [추가기능] 판매 시 실제 투입된 화폐 리스트에서 결제 금액을 차감합니다.
     // 이 메서드는 동전/지폐 투입 이력을 보존하면서 결제 후 잔액을 정확하게 관리하기 위한 헬퍼입니다.
+    // [기능 설명] 동적 리스트에 보관된 투입 화폐 기록에서 판매 금액을 소모합니다.
+    // 실제로 어떤 화폐 단위가 투입되었는지를 반영하여 현재 잔액 상태를 유지합니다.
     private void consumeInsertedMoney(int amountToConsume) {
         int remaining = amountToConsume;
         for (int i = 0; i < dynamicInsertedMoneyList.size() && remaining > 0; ) {
@@ -396,7 +412,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
-    // 관리자 모드 개방 및 폼 격리 처리
+    // [기능 설명] 관리자 인증 후 관리자 창을 띄우고 판매 화면을 숨겨 독립적인 운영 상태로 전환합니다.
+    // 관리자 모드가 활성화되면 일반 판매 기능은 일시 중단됩니다.
     private void openAdminMenu() {
         String pwd = JOptionPane.showInputDialog(this, "관리자 인증 패스워드를 입력하세요:");
         if (pwd != null && authenticateAdmin(pwd)) {
@@ -417,6 +434,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [기능 설명] 관리자 비밀번호를 파일에서 읽어옵니다.
+    // 파일이 없거나 형식이 올바르지 않은 경우 기본 비밀번호로 초기화합니다.
     private void loadAdminPassword() {
         File pwdFile = new File(ADMIN_PASSWORD_FILE);
         if (pwdFile.exists()) {
@@ -480,6 +499,8 @@ public class VendingMachineForm extends JFrame {
         return null;
     }
 
+    // [기능 설명] 판매 또는 취소 내역을 로컬 파일에 기록합니다.
+    // sales.txt는 전체 거래 이력, daily_sales.txt는 일별 집계용, monthly_sales.txt는 월별 집계용으로 사용됩니다.
     private void saveSalesRecordToFile(String command, String name, int price) {
         appendLineToFile(SALES_FILE, command + "|" + name + "|" + price);
         appendLineToFile(DAILY_SALES_FILE, getCurrentDate() + "|" + command + "|" + name + "|" + price);
@@ -493,7 +514,8 @@ public class VendingMachineForm extends JFrame {
         networkQueue.enqueue(packet);
     }
 
-    // [추가기능] 자판기 실행 시 초기 재고 상태를 서버로 일괄 전송합니다.
+    // [기능 설명] 자판기 시작 시 현재 재고 정보를 중앙 서버에 전송하여 서버 측 재고 현황과 동기화합니다.
+    // 서버는 이 정보를 기반으로 초기 재고를 집계하고 상태를 유지할 수 있습니다.
     private void sendCurrentInventoryToServer() {
         DrinkNode current = head;
         while (current != null) {
@@ -519,7 +541,8 @@ public class VendingMachineForm extends JFrame {
         return LocalDate.now().format(MONTH_FORMAT);
     }
 
-    // [파일 I/O] 로컬 drink_info.txt 파일에서 음료 이름, 가격, 재고 정보를 불러옵니다.
+    // [기능 설명] 자판기의 음료 이름, 가격, 재고 정보를 파일에서 읽어옵니다.
+    // 파일이 유효하지 않거나 존재하지 않을 경우 디폴트 값으로 초기화합니다.
     private void loadDrinkInfo() {
         File file = new File(DRINK_INFO_FILE);
         if (file.exists()) {
@@ -548,7 +571,8 @@ public class VendingMachineForm extends JFrame {
         saveDrinkInfo();
     }
 
-    // [파일 I/O] 현재 연결 리스트 기반 음료 정보를 drink_info.txt 파일에 기록합니다.
+    // [기능 설명] 현재 연결 리스트 기반 음료 정보를 drink_info.txt 파일에 기록합니다.
+    // 관리자 변경 또는 재고 변동이 있을 때 이 메서드를 호출하여 영구적으로 저장합니다.
     private void saveDrinkInfo() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(DRINK_INFO_FILE, false))) {
             DrinkNode current = head;
@@ -562,6 +586,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [기능 설명] 동전 재고 정보를 파일에서 읽어옵니다.
+    // 파일이 없거나 손상되었으면 기본 재고 값으로 초기화합니다.
     private void loadCoinStock() {
         File file = new File(COIN_STOCK_FILE);
         if (file.exists()) {
@@ -584,6 +610,8 @@ public class VendingMachineForm extends JFrame {
         saveCoinStock();
     }
 
+    // [기능 설명] 현재 동전 재고 수량을 coin_stock.txt 파일로 저장합니다.
+    // 거스름돈 반환, 판매, 수금 등 동전 수량이 변할 때 호출되어야 합니다.
     private void saveCoinStock() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(COIN_STOCK_FILE, false))) {
             for (int i = 0; i < machineCoinStock.length; i++) {
@@ -598,6 +626,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [기능 설명] 관리자 메뉴에서 호출되는 자판기 내 동전 재고 요약 문자열을 생성합니다.
+    // 각 동전별 보유 수와 총 현금 금액, 유지해야 하는 최소 보유량을 표시합니다.
     public String getCashStatusSummary() {
         StringBuilder sb = new StringBuilder();
         int total = 0;
@@ -612,6 +642,8 @@ public class VendingMachineForm extends JFrame {
         return sb.toString();
     }
 
+    // [기능 설명] 수금 명령이 실행되면 최소 보유 잔여 동전을 남기고 남은 금액을 회수합니다.
+    // 수금 내역은 cash_collection.txt에 기록되어 관리자 기록으로 남습니다.
     public int collectCashFromMachine() {
         int collectedTotal = 0;
         for (int i = 0; i < machineCoinStock.length; i++) {
@@ -687,7 +719,8 @@ public class VendingMachineForm extends JFrame {
         networkWorker.start();
     }
 
-    // [네트워크] 서버에서 온 응답을 해석하고 예약된 요청 ID에 결과를 등록합니다.
+    // [기능 설명] 서버로부터 오는 응답 패킷을 판별하고 처리합니다.
+    // QUERY 응답은 대기 중인 요청과 매칭시키며, ALERT 패킷은 사용자에게 팝업으로 알립니다.
     private void handleServerResponse(String responseLine) {
         if (responseLine == null || responseLine.trim().isEmpty())
             return;
@@ -710,7 +743,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
-    // [추가기능] 서버에 쿼리 요청을 전송하고, 동기 응답을 기다려 결과를 반환합니다.
+    // [기능 설명] 서버에 쿼리 요청을 보낸 뒤 응답이 도착할 때까지 기다립니다.
+    // 서버 상태 조회와 일별/월별 집계 조회를 위해 사용됩니다.
     public String queryServer(String queryType, String queryParam) {
         if (writer == null) {
             return "[오류] 서버에 연결되어 있지 않습니다.";
@@ -746,6 +780,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [기능 설명] 관리자 모드에서 호출되는 재고 보충 기능입니다.
+    // 특정 음료에 대해 재고를 추가하고 이를 파일과 서버에 동기화합니다.
     public void replenishStock(String name, int amount) {
         DrinkNode drink = findDrinkNode(name);
         if (drink != null) {
@@ -756,7 +792,8 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
-    // [관리자 연동] 관리자 화면에서 변경된 음료 이름 및 가격을 적용하고 서버로 동기화합니다.
+    // [기능 설명] 관리자 화면에서 음료 이름과 가격을 변경할 때 호출됩니다.
+    // 연결 리스트, 파일, 서버 동기화, 재고 로그 저장까지 한 번에 처리합니다.
     public void updateDrinkInfo(String oldName, String newName, int newPrice) {
         DrinkNode drink = findDrinkNode(oldName);
         if (drink != null) {
@@ -784,6 +821,9 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [기능 설명] 현재 자판기 음료 정보를 이진 탐색 트리로 구성하고,
+    // 입력된 가격에 해당하는 음료를 검색하여 결과를 팝업으로 표시합니다.
+    // 이는 요구사항의 Tree 구조 및 Search 기능 구현 예시입니다.
     public void buildTreeAndSearchPrice(int targetPrice) {
         TreeNode root = null;
         DrinkNode current = head;

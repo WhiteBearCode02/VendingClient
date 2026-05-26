@@ -367,7 +367,7 @@ public class AdminForm extends JFrame {
         } catch (Exception ignored) {
         }
     }
-    // [기능 설명] 로컬 daily_sales.txt 파일을 읽어 특정 날짜의 매출 총합을 계산하여 화면에 표시합니다.
+    // [기능 설명] 로컬 저장된 일별 매출 파일을 분석하여, 입력한 날짜의 합산 매출을 계산하고 관리자 화면에 출력합니다.
     private void displayDailySalesTotal() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
@@ -399,7 +399,7 @@ public class AdminForm extends JFrame {
         logArea.setText("--- [일별 매출 총합] ---\n" + date + " : " + total + "원");
     }
 
-    // [기능 설명] 로컬 monthly_sales.txt 파일을 읽어 특정 월의 매출 총합을 계산하여 화면에 표시합니다.
+    // [기능 설명] 로컬 저장된 월별 매출 파일을 분석하여, 입력한 월의 합산 매출을 계산하고 관리자 화면에 출력합니다.
     private void displayMonthlySalesTotal() {
         String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
         if (month == null || month.trim().isEmpty())
@@ -431,7 +431,7 @@ public class AdminForm extends JFrame {
         logArea.setText("--- [월별 매출 총합] ---\n" + month + " : " + total + "원");
     }
 
-    // [기능 설명] 일별 매출 파일에서 각 음료별 판매 금액을 집계한 뒤 관리자 화면에 출력합니다.
+    // [기능 설명] 일별 매출 기록을 읽어 각 음료별 판매 금액을 집계하고, 해당 날짜의 상세 통계를 관리자 화면에 표시합니다.
     private void displayDailyDrinkSales() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
@@ -480,7 +480,7 @@ public class AdminForm extends JFrame {
         logArea.setText(sb.toString());
     }
 
-    // [기능 설명] 월별 매출 파일에서 각 음료별 판매 금액을 집계한 뒤 관리자 화면에 출력합니다.
+    // [기능 설명] 월별 매출 기록을 읽어 각 음료별 판매 금액을 집계하고, 해당 월의 상세 통계를 관리자 화면에 표시합니다.
     private void displayMonthlyDrinkSales() {
         String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
         if (month == null || month.trim().isEmpty())
@@ -529,7 +529,7 @@ public class AdminForm extends JFrame {
         logArea.setText(sb.toString());
     }
 
-    // [추가기능] 중앙 서버에 일별 집계 쿼리를 전송하여 서버의 일별 매출 현황을 조회합니다.
+    // [기능 설명] 중앙 서버에 일별 매출 집계를 요청하고, 서버가 집계한 결과를 관리자 화면에 표시합니다.
     private void displayServerDailySummary() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
