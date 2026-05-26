@@ -800,16 +800,8 @@ public class VendingMachineForm extends JFrame {
                 if (drinkNames[i].equals(oldName)) {
                     drinkNames[i] = newName;
                     drinkPrices[i] = newPrice;
-                    try {
-                        java.lang.reflect.Field nField = DrinkNode.class.getDeclaredField("name");
-                        nField.setAccessible(true);
-                        nField.set(drink, newName);
-                        java.lang.reflect.Field pField = DrinkNode.class.getDeclaredField("price");
-                        pField.setAccessible(true);
-                        pField.set(drink, newPrice);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    drink.setName(newName);
+                    drink.setPrice(newPrice);
                     saveDrinkInfo();
                     logStockChange("INFO_UPDATED", newName, 0, drink.getStock());
                     sendNetworkPacket("DRINK_UPDATE|" + machineId + "|" + oldName + "|" + newName + "|" + newPrice);

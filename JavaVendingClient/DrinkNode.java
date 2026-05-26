@@ -35,16 +35,23 @@ public class DrinkNode {
         return stock;
     }
 
+    public void setStock(int stock) {
+        this.stock = stock;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setPrice(int price) {
+        this.price = price;
+    }
+
     public DrinkNode getNext() {
         return next;
     }
 
     public void setNext(DrinkNode next) {
         this.next = next;
-    }
-
-    // 재고를 차감하거나 관리자 모드에서 채워 넣을 때 사용하는 메서드입니다.
-    public void setStock(int stock) {
-        this.stock = stock;
     }
 }
