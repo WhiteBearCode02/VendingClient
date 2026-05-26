@@ -17,13 +17,13 @@
 ## 🏛️ 시스템 아키텍처
 ```mermaid
 graph TD
-    subgraph Client (VendingMachineForm)
+    subgraph "Client (VendingMachineForm)"
         A[GUI Event] --> B{Business Logic};
         B --> C[Network Queue];
         C --> D((Socket));
     end
 
-    subgraph Server (VendingServer)
+    subgraph "Server (VendingServer)"
         E((Socket)) --> F[Multi-Thread Handler];
         F --> G{Synchronized Logic};
         G --> H[In-Memory DB];
