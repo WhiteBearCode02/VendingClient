@@ -346,6 +346,11 @@ public class VendingServer {
                             System.out.println("==========================================");
                             System.out.println(" [긴급 알림] '" + drinkName + "' 재고가 " + db[i].currentStock + "개 남았습니다!!");
                             System.out.println("==========================================");
+                            // [추가기능] 클라이언트에게 재고 부족 경고 패킷을 전송합니다.
+                            // 서버는 콘솔뿐 아니라 실제 사용자 GUI에도 알림을 전달하여 관리자 행동을 유도합니다.
+                            if (responder != null) {
+                                responder.println("ALERT|LOW_STOCK|음료 '" + drinkName + "' 재고가 " + db[i].currentStock + "개 남았습니다.");
+                            }
                         }
                     } else if (command.equals("CANCEL")) {
                         db[i].currentStock = Math.max(0, stock);

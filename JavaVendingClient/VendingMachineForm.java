@@ -239,7 +239,25 @@ public class VendingMachineForm extends JFrame {
         if (isPaper)
             currentPaperMoney += amount;
 
+        // [거스름돈 재고 관리] 동전을 투입하면 기기 내부 동전 재고도 함께 증가시킵니다.
+        // 이렇게 해야 추후 거스름돈 반환 시 실제 남아있는 동전 수를 반영할 수 있습니다.
+        if (!isPaper) {
+            addInsertedCoinToStock(amount);
+        }
+
         updateUIState();
+    }
+
+    // [추가기능] 투입된 동전을 기기 내 거스름돈 재고로 적립하는 헬퍼 메서드입니다.
+    // 요구사항의 동전 가감 구현을 보강하며, 동전 반환 시 부족 여부 판단에 정확성을 높입니다.
+    private void addInsertedCoinToStock(int amount) {
+        for (int i = 0; i < COIN_VALUES.length; i++) {
+            if (COIN_VALUES[i] == amount) {
+                machineCoinStock[i]++;
+                saveCoinStock();
+                return;
+            }
+        }
     }
 
     // [요구사항] 그리디 알고리즘 기반 거스름돈 반환 및 메모리 해제
@@ -316,7 +334,8 @@ public class VendingMachineForm extends JFrame {
         currentTotalMoney -= drink.getPrice();
         drink.setStock(drink.getStock() - 1);
 
-        // 동적 배열에서 가장 오래된 화폐부터 결제액만큼 차감 논리 적용 (생략: 총액으로 계산)
+        // [동적 화폐 소비] 실제 투입된 화폐 리스트에서 판매 금액만큼 차감하여 상태를 갱신합니다.
+        consumeInsertedMoney(drink.getPrice());
         purchaseStack.push(drink.getName());
         sendNetworkPacket(
                 "SALE|" + machineId + "|" + drink.getName() + "|" + drink.getPrice() + "|" + drink.getStock());
@@ -327,8 +346,30 @@ public class VendingMachineForm extends JFrame {
             logStockChange("DEPLETED", drink.getName(), -1, 0);
         }
 
+        if (currentTotalMoney == 0) {
+            dynamicInsertedMoneyList.clear();
+        }
         JOptionPane.showMessageDialog(this, drink.getName() + " 배출 완료!");
         updateUIState();
+    }
+
+    // [추가기능] 판매 시 실제 투입된 화폐 리스트에서 결제 금액을 차감합니다.
+    // 이 메서드는 동전/지폐 투입 이력을 보존하면서 결제 후 잔액을 정확하게 관리하기 위한 헬퍼입니다.
+    private void consumeInsertedMoney(int amountToConsume) {
+        int remaining = amountToConsume;
+        for (int i = 0; i < dynamicInsertedMoneyList.size() && remaining > 0; ) {
+            int value = dynamicInsertedMoneyList.get(i);
+            if (value <= remaining) {
+                remaining -= value;
+                dynamicInsertedMoneyList.remove(i);
+            } else {
+                dynamicInsertedMoneyList.set(i, value - remaining);
+                remaining = 0;
+            }
+        }
+        if (remaining > 0) {
+            dynamicInsertedMoneyList.clear();
+        }
     }
 
     private void executeUndoWithStack() {
@@ -660,6 +701,12 @@ public class VendingMachineForm extends JFrame {
             synchronized (responseLock) {
                 responseLock.notifyAll();
             }
+        } else if (tokens[0].equals("ALERT")) {
+            // [추가기능] 서버로부터 받은 낮은 재고 경고를 사용자에게 즉시 팝업으로 통지합니다.
+            String alertType = tokens[1].trim();
+            String alertPayload = tokens[2];
+            JOptionPane.showMessageDialog(this, "[서버 알림] " + alertType + "\n" + alertPayload,
+                    "서버 경고", JOptionPane.WARNING_MESSAGE);
         }
     }
 
