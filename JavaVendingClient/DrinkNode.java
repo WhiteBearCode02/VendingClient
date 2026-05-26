@@ -1,4 +1,10 @@
-// [GitHub Commit: feat: Implement Linked-List node architecture for item inventory management]
+/*
+ * DrinkNode.java
+ * ------------------
+ * 자판기 음료 재고를 단일 연결 리스트(Linked-List) 형태로 구현한 노드 클래스입니다.
+ * 요구사항 중 '각 음료의 재고 수량은 Linked-List를 통해 구현' 항목을 만족합니다.
+ * 추가 기능: 연결 리스트 재고 모델을 통해 재고 보충, 조회, 음료 정보 변경을 자연스럽게 처리합니다.
+ */
 
 // [기능 설명] C언어 vending_machine.h의 'struct DrinkNode' 구조체를 Java의 객체지향 클래스로 완벽하게 이식합니다.
 public class DrinkNode {

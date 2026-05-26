@@ -1,3 +1,16 @@
+/*
+ * VendingMachineForm.java
+ * ------------------
+ * GUI 환경에서 동작하는 음료 자판기 판매 화면입니다.
+ * 요구사항의 주요 내용 대부분을 포함하며, 다음과 같은 요소를 동작시킵니다.
+ *   - 8종 음료 판매 및 재고 관리
+ *   - 화폐 입력 제한 및 거스름돈 반환
+ *   - 관리자 모드 진입 및 화면 분리
+ *   - 파일 기반 매출/재고 데이터 저장
+ *   - Socket 통신을 통한 서버 전송
+ * 추가 기능: 연결 리스트 기반 음료 재고, 스택 기반 구매 취소, BST 검색, 네트워크 버퍼링 등을 구현했습니다.
+ */
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -399,6 +412,7 @@ public class VendingMachineForm extends JFrame {
         return pwd != null && pwd.equals(adminPassword);
     }
 
+    // [기능 설명] 관리자 비밀번호 변경 요청을 처리하고, 조건에 맞는 경우 파일에 저장합니다.
     public String changeAdminPassword(String currentPwd, String newPwd) {
         if (!authenticateAdmin(currentPwd)) {
             return "현재 비밀번호가 일치하지 않습니다.";
@@ -414,6 +428,7 @@ public class VendingMachineForm extends JFrame {
     // ----------------------------------------------------
     // 아래는 네트워크, 파일, 연결 리스트 탐색 유틸 로직 (기존 유지)
     // ----------------------------------------------------
+    // [자료구조] 연결 리스트를 탐색하여 특정 음료 노드를 찾습니다.
     public DrinkNode findDrinkNode(String name) {
         DrinkNode current = head;
         while (current != null) {
@@ -430,12 +445,14 @@ public class VendingMachineForm extends JFrame {
         appendLineToFile(MONTHLY_SALES_FILE, getCurrentMonth() + "|" + command + "|" + name + "|" + price);
     }
 
+    // [네트워크] 생성된 패킷을 비동기 네트워크 전송 큐에 추가합니다.
     private void sendNetworkPacket(String packet) {
         if (packet == null || packet.trim().isEmpty() || !isNetworkActive)
             return;
         networkQueue.enqueue(packet);
     }
 
+    // [추가기능] 자판기 실행 시 초기 재고 상태를 서버로 일괄 전송합니다.
     private void sendCurrentInventoryToServer() {
         DrinkNode current = head;
         while (current != null) {
@@ -461,6 +478,7 @@ public class VendingMachineForm extends JFrame {
         return LocalDate.now().format(MONTH_FORMAT);
     }
 
+    // [파일 I/O] 로컬 drink_info.txt 파일에서 음료 이름, 가격, 재고 정보를 불러옵니다.
     private void loadDrinkInfo() {
         File file = new File(DRINK_INFO_FILE);
         if (file.exists()) {
@@ -489,6 +507,7 @@ public class VendingMachineForm extends JFrame {
         saveDrinkInfo();
     }
 
+    // [파일 I/O] 현재 연결 리스트 기반 음료 정보를 drink_info.txt 파일에 기록합니다.
     private void saveDrinkInfo() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(DRINK_INFO_FILE, false))) {
             DrinkNode current = head;
@@ -576,6 +595,7 @@ public class VendingMachineForm extends JFrame {
                 getCurrentDate() + "|" + event + "|" + name + "|" + amount + "|" + stock);
     }
 
+    // [추가기능] 자판기와 중앙 서버 간 통신을 담당하는 백그라운드 네트워크 스레드를 시작합니다.
     private void startBackgroundNetworkEngine() {
         Thread networkWorker = new Thread(new Runnable() {
             @Override
@@ -626,6 +646,7 @@ public class VendingMachineForm extends JFrame {
         networkWorker.start();
     }
 
+    // [네트워크] 서버에서 온 응답을 해석하고 예약된 요청 ID에 결과를 등록합니다.
     private void handleServerResponse(String responseLine) {
         if (responseLine == null || responseLine.trim().isEmpty())
             return;
@@ -642,6 +663,7 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [추가기능] 서버에 쿼리 요청을 전송하고, 동기 응답을 기다려 결과를 반환합니다.
     public String queryServer(String queryType, String queryParam) {
         if (writer == null) {
             return "[오류] 서버에 연결되어 있지 않습니다.";
@@ -687,6 +709,7 @@ public class VendingMachineForm extends JFrame {
         }
     }
 
+    // [관리자 연동] 관리자 화면에서 변경된 음료 이름 및 가격을 적용하고 서버로 동기화합니다.
     public void updateDrinkInfo(String oldName, String newName, int newPrice) {
         DrinkNode drink = findDrinkNode(oldName);
         if (drink != null) {
@@ -750,6 +773,7 @@ public class VendingMachineForm extends JFrame {
             searchTreeNode(root.right, targetPrice, sb);
     }
 
+    // [진입점] 자판기 GUI 실행을 위한 메인 함수입니다. 서버 주소와 포트를 인자로 받아 연결을 초기화합니다.
     public static void main(String[] args) {
         String host = "127.0.0.1";
         int port = 8080;

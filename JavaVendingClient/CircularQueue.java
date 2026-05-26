@@ -1,4 +1,10 @@
-// [GitHub Commit: feat: Implement thread-safe Circular Queue for async network buffering]
+/*
+ * CircularQueue.java
+ * ------------------
+ * 네트워크 통신 패킷을 비동기로 버퍼링하기 위한 원형 큐 구현입니다.
+ * 요구사항 중 'Stack과 Queue 적절히 사용' 항목에서 Queue 사용을 만족하며,
+ * 추가 기능으로 멀티스레드 생산자-소비자 패턴을 지원합니다.
+ */
 
 // [기능 설명] 멀티스레드 환경에서 안전하게 문자열 패킷을 버퍼링하는 원형 큐 자료구조 클래스입니다.
 // 고정된 크기의 배열 내에서 front와 rear 인덱스를 순환시켜 메모리 효율을 극대화합니다.

@@ -1,0 +1,7 @@
+# Java build artifacts
+*.class
+
+# IDE/files
+*.log
+*.tmp
+*.DS_Store

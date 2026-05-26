@@ -1,3 +1,16 @@
+/*
+ * AdminForm.java
+ * ------------------
+ * 관리자 전용 GUI 화면입니다. 관리자 인증 후에 판매 화면과 독립적으로 동작하며,
+ * 요구사항의 관리자 메뉴 기능들을 파일 입출력 방식으로 지원합니다.
+ * 주요 기능:
+ *   - 일별/월별 매출 조회 및 집계
+ *   - 음료 재고 보충 및 정보 수정
+ *   - 관리자 비밀번호 변경
+ *   - 화폐 현황 확인 및 수금
+ * 추가 기능: 서버 상태 조회와 서버 집계 쿼리 기능을 통해 중앙 서버와의 연동을 구현했습니다.
+ */
+
 // [기능 설명] 자판기의 매출 관리, 재고 보충, 상품 정보 수정을 전담하는 독립적인 관리자 GUI 창 클래스입니다.
 // 파일 입출력 및 배열 정렬 알고리즘 소스코드가 집약되어 있습니다.
 
@@ -354,6 +367,7 @@ public class AdminForm extends JFrame {
         } catch (Exception ignored) {
         }
     }
+    // [기능 설명] 로컬 daily_sales.txt 파일을 읽어 특정 날짜의 매출 총합을 계산하여 화면에 표시합니다.
     private void displayDailySalesTotal() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
@@ -385,6 +399,7 @@ public class AdminForm extends JFrame {
         logArea.setText("--- [일별 매출 총합] ---\n" + date + " : " + total + "원");
     }
 
+    // [기능 설명] 로컬 monthly_sales.txt 파일을 읽어 특정 월의 매출 총합을 계산하여 화면에 표시합니다.
     private void displayMonthlySalesTotal() {
         String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
         if (month == null || month.trim().isEmpty())
@@ -416,6 +431,7 @@ public class AdminForm extends JFrame {
         logArea.setText("--- [월별 매출 총합] ---\n" + month + " : " + total + "원");
     }
 
+    // [기능 설명] 일별 매출 파일에서 각 음료별 판매 금액을 집계한 뒤 관리자 화면에 출력합니다.
     private void displayDailyDrinkSales() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
@@ -464,6 +480,7 @@ public class AdminForm extends JFrame {
         logArea.setText(sb.toString());
     }
 
+    // [기능 설명] 월별 매출 파일에서 각 음료별 판매 금액을 집계한 뒤 관리자 화면에 출력합니다.
     private void displayMonthlyDrinkSales() {
         String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
         if (month == null || month.trim().isEmpty())
@@ -512,6 +529,7 @@ public class AdminForm extends JFrame {
         logArea.setText(sb.toString());
     }
 
+    // [추가기능] 중앙 서버에 일별 집계 쿼리를 전송하여 서버의 일별 매출 현황을 조회합니다.
     private void displayServerDailySummary() {
         String date = JOptionPane.showInputDialog(this, "조회할 일자를 입력하세요 (YYYY-MM-DD):");
         if (date == null || date.trim().isEmpty())
@@ -520,6 +538,7 @@ public class AdminForm extends JFrame {
         logArea.setText(response);
     }
 
+    // [추가기능] 중앙 서버에 월별 집계 쿼리를 전송하여 서버의 월별 매출 현황을 조회합니다.
     private void displayServerMonthlySummary() {
         String month = JOptionPane.showInputDialog(this, "조회할 월을 입력하세요 (YYYY-MM):");
         if (month == null || month.trim().isEmpty())
@@ -528,6 +547,7 @@ public class AdminForm extends JFrame {
         logArea.setText(response);
     }
 
+    // [추가기능] 중앙 서버 상태 정보를 요청하여 피어 연결 상태, 동기화 시간, 통합 매출 등을 출력합니다.
     private void displayServerStatus() {
         String response = mainForm.queryServer("SERVER_STATUS", "");
         logArea.setText(response);
